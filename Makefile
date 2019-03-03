@@ -1,9 +1,10 @@
 PICARD = /home/druano/tools/picard/build/libs/picard.jar
 
 REF = /home/druano/tools/gatk-bundle-b38/Homo_sapiens_assembly38.fasta
-data = /exports/path-demiranda/usr/amfgcp/synthetic-data/
+data = /exports/path-demiranda/usr/amfgcp/synthetic-data
 TMP_DIR = `mktemp`
 dream_data = /mnt/patharchief/ImmunoGenomics/ngsdata/synthetic/DREAMchallenge
+WORKDIR = /home/druano/NeoSeq
 
 samples = set1.normal.v2 set1.tumor.v2 set2.normal set2.tumor set3.normal set3.tumor
 library = IDT
@@ -12,21 +13,26 @@ library = IDT
 # Realign bam files with hg38
 #http://crazyhottommy.blogspot.com/2015/10/convert-bam-to-fastq-and-remap-it-with.html
 #======================================================================================
+createFASTQ: $(patsubst %, $(dream_data)/fastq/%_R1.fq, $(samples))
 createBAMs: $(patsubst %, $(WORKDIR)/bam/%.bam, $(samples))
 
+$(dream_data)/fastq/%_R1.fq $(dream_data)/fastq/%_R2.fq:
+	java -jar -Xmx3g $(PICARD) SamToFastq QUIET=true VALIDATION_STRINGENCY=LENIENT \
+		INPUT=$(dream_data)/synthetic.challenge.$*.bam \
+		FASTQ=$(word 1,$^) SECOND_END_FASTQ=$(word 2,$^) INCLUDE_NON_PRIMARY_ALIGNMENTS=TRUE
 
-$(WORKDIR)/bam/%.bam:
-	 $(eval TMP_DIR := $(shell mktemp -d))
-	java -Xmx32G -jar $(PICARD) SamToFastq \
-		I=$(dream_data)/synthetic.challenge.$*.bam \
-		INTERLEAVE=true NON_PF=true \
-		FASTQ=/dev/stdout TMP_DIR=$(TMP_DIR) | \
-	/home/druano/tools/bwa-0.7.16a/bwa mem -t 10 -M -p \
+$(WORKDIR)/bam/%.sam: $(dream_data)/fastq/%_R1.fq $(dream_data)/fastq/%_R2.fq
+#	$(eval TMP_DIR := $(shell mktemp -d))
+	/home/druano/tools/bwa-0.7.16a/bwa mem -t 10 -M \
 	-R '@RG\tID:$(shell echo $* | sed "s/_R1//")\tLB:$(library)\tSM:$(shell echo $* | \
-		sed "s/_L.*_R1//")\tPL:ILLUMINA' $(REF) /dev/stdin - | \
-	java -Xmx3g -jar $(PICARD) SortSam I=/dev/stdin \
-		SO=coordinate CREATE_INDEX=true QUIET=TRUE \
-		O=$(data)/bam/$*.bam
+		sed "s/_L.*_R1//")\tPL:ILLUMINA' -o $@ $(REF) $^
+
+$(data)/bam/%.bam: $(WORKDIR)/bam/%.sam:
+	java -Xmx3g -jar $(PICARD) SortSam I=$^ \
+		SO=coordinate CREATE_INDEX=true QUIET=TRUE TMP_DIR=$(TMP_DIR) \
+		O=$@
+
+
 
 #samtools flagstat /mnt/patharchief/ImmunoGenomics/ngsdata/synthetic/DREAMchallenge/synthetic.challenge.set1.normal.v2.bam
 #915782532 + 146511378 in total (QC-passed reads + QC-failed reads)
