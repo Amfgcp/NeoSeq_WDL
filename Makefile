@@ -7,29 +7,30 @@ dream_data = /mnt/patharchief/ImmunoGenomics/ngsdata/synthetic/DREAMchallenge
 WORKDIR = /home/druano/NeoSeq
 
 samples = set1.normal.v2 set1.tumor.v2 set2.normal set2.tumor set3.normal set3.tumor
+tumors = $(shell tr " " "\n"  < <(echo $(samples)) | sed "s/N$$//g" | sed "s/T$$//g" | sort -u -V | tr "\n" " ")
 library = IDT
-
+	
 #======================================================================================
 # Realign bam files with hg38
 #http://crazyhottommy.blogspot.com/2015/10/convert-bam-to-fastq-and-remap-it-with.html
 #======================================================================================
-createFASTQ: $(patsubst %, $(dream_data)/fastq/%_R1.fq, $(samples))
-createBAMs: $(patsubst %, $(WORKDIR)/bam/%.bam, $(samples))
+FASTQ: $(patsubst %, $(dream_data)/fastq/%_R1.fq, $(samples))
 
-$(dream_data)/fastq/%_R1.fq $(dream_data)/fastq/%_R2.fq:
+$(dream_data)/fastq/%_R1.fq:
 	java -jar -Xmx3g $(PICARD) SamToFastq QUIET=true VALIDATION_STRINGENCY=LENIENT \
 		INPUT=$(dream_data)/synthetic.challenge.$*.bam \
-		FASTQ=$(word 1,$^) SECOND_END_FASTQ=$(word 2,$^) INCLUDE_NON_PRIMARY_ALIGNMENTS=TRUE
+		FASTQ=$(dream_data)/fastq/$*_R1.fq SECOND_END_FASTQ=$(dream_data)/fastq/$*_R2.fq
 
-$(WORKDIR)/bam/%.sam: $(dream_data)/fastq/%_R1.fq $(dream_data)/fastq/%_R2.fq
-#	$(eval TMP_DIR := $(shell mktemp -d))
+$(WORKDIR)/bam/%.sam: $(dream_data)/fastq/%_R1.fq
 	/home/druano/tools/bwa-0.7.16a/bwa mem -t 10 -M \
-	-R '@RG\tID:$(shell echo $* | sed "s/_R1//")\tLB:$(library)\tSM:$(shell echo $* | \
-		sed "s/_L.*_R1//")\tPL:ILLUMINA' -o $@ $(REF) $^
+		-R '@RG\tID:$(shell echo $* | sed "s/_R1//")\tLB:$(library)\tSM:$(shell echo $* | sed "s/_L.*_R1//")\tPL:ILLUMINA' \
+		-o $@ $(REF) $(dream_data)/fastq/$*_R1.fq $(dream_data)/fastq/$*_R2.fq
 
-$(data)/bam/%.bam: $(WORKDIR)/bam/%.sam:
-	java -Xmx3g -jar $(PICARD) SortSam I=$^ \
-		SO=coordinate CREATE_INDEX=true QUIET=TRUE TMP_DIR=$(TMP_DIR) \
+createBAMs: $(patsubst %, $(data)/bam/%.bam, $(samples))
+$(data)/bam/%.bam: $(WORKDIR)/bam/%.sam
+#	$(eval TMP_DIR := $(shell mktemp -d))
+	java -Xmx8g -jar $(PICARD) SortSam I=$^ \
+		SO=coordinate CREATE_INDEX=true QUIET=TRUE TMP_DIR=/home/druano/NeoSeq/tmp_picard \
 		O=$@
 
 
@@ -107,3 +108,18 @@ $(WORKDIR)/tmp/%_muTect.filter.vcf.gz: $(WORKDIR)/muTect/%_muTect.vcf
 	@echo " --------- compress and index the file --------- "
 	bgzip -c $(WORKDIR)/muTect/$*_muTect.filter.vcf > $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz
 	tabix -p vcf -f $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz
+
+
+# - Combine different vcf files
+#=============================================================
+mergeVar: $(patsubst %, $(WORKDIR)/vcf/%_CombineVariants.vcf, $(tumors)) 
+
+$(WORKDIR)/vcf/%_CombineVariants.vcf:
+	java -Xmx4g -jar /home/druano/tools/GenomeAnalysisTK-3.8/GenomeAnalysisTK.jar \
+		-T CombineVariants \
+		-R $(REF) \
+		--genotypemergeoption UNIQUIFY \
+		-V:strelka $(WORKDIR)/tmp/$*_strelka.vcf.gz \
+		-V:mutect $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz \
+		-V:varscan $(WORKDIR)/tmp/$*_varScan.filter.vcf.gz\
+		--out $(WORKDIR)/vcf/$*_CombineVariants.vcf
