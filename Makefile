@@ -1,3 +1,4 @@
+SHELL := /bin/bash # define which shell to use!
 PICARD = /home/druano/tools/picard/build/libs/picard.jar
 
 REF = /home/druano/tools/gatk-bundle-b38/Homo_sapiens_assembly38.fasta
@@ -17,21 +18,23 @@ library = IDT
 FASTQ: $(patsubst %, $(dream_data)/fastq/%_R1.fq, $(samples))
 
 $(dream_data)/fastq/%_R1.fq:
-	java -jar -Xmx3g $(PICARD) SamToFastq QUIET=true VALIDATION_STRINGENCY=LENIENT \
+	java -jar -Xmx8g $(PICARD) SamToFastq QUIET=true VALIDATION_STRINGENCY=LENIENT \
 		INPUT=$(dream_data)/synthetic.challenge.$*.bam \
 		FASTQ=$(dream_data)/fastq/$*_R1.fq SECOND_END_FASTQ=$(dream_data)/fastq/$*_R2.fq
 
-$(WORKDIR)/bam/%.sam: $(dream_data)/fastq/%_R1.fq
+createSAMs: $(patsubst %, $(WORKDIR)/bam/%.sam, $(samples))
+$(WORKDIR)/bam/%.sam: #$(dream_data)/fastq/%_R1.fq
 	/home/druano/tools/bwa-0.7.16a/bwa mem -t 10 -M \
 		-R '@RG\tID:$(shell echo $* | sed "s/_R1//")\tLB:$(library)\tSM:$(shell echo $* | sed "s/_L.*_R1//")\tPL:ILLUMINA' \
 		-o $@ $(REF) $(dream_data)/fastq/$*_R1.fq $(dream_data)/fastq/$*_R2.fq
 
 createBAMs: $(patsubst %, $(data)/bam/%.bam, $(samples))
-$(data)/bam/%.bam: $(WORKDIR)/bam/%.sam
+#$(data)/bam/%.bam: #$(WORKDIR)/bam/%.sam
 #	$(eval TMP_DIR := $(shell mktemp -d))
-	java -Xmx8g -jar $(PICARD) SortSam I=$^ \
+$(data)/bam/%.bam:
+	java -Xmx8g -jar $(PICARD) SortSam I=$(WORKDIR)/bam/$*.sam \
 		SO=coordinate CREATE_INDEX=true QUIET=TRUE TMP_DIR=/home/druano/NeoSeq/tmp_picard \
-		O=$@
+		O=$(data)/bam/$*.bam
 
 
 
@@ -57,10 +60,6 @@ $(data)/bam/%.bam: $(WORKDIR)/bam/%.sam
 #======================================================================================
 MUT: $(patsubst %, $(WORKDIR)/muTect/%_muTect.vcf, $(tumors))	
 
-doMuTect: 
-	$(MAKE) -f $(makefile) $(patsubst %, $(WORKDIR)/tmp/%_muTect.filter.vcf.gz, $(tumors))
-
-
 
 $(WORKDIR)/muTect/%_raw.vcf: 
 	/home/druano/tools/gatk-4.beta.3-SNAPSHOT/gatk-launch Mutect2 \
@@ -71,7 +70,6 @@ $(WORKDIR)/muTect/%_raw.vcf:
 		-normal $*N \
 		--dbsnp $(dbSNP) \
 		-O $(WORKDIR)/muTect/$*_raw.vcf
-
 
 $(WORKDIR)/muTect/%_muTect.vcf: $(WORKDIR)/muTect/%_raw.vcf
 	/home/druano/tools/gatk-4.beta.3-SNAPSHOT/gatk-launch FilterMutectCalls \
@@ -93,22 +91,14 @@ minALTfreq = 0.02
 minALTfreq_inNormal = $(shell awk 'BEGIN{print $(minALTfreq)/2} ')
 filterMUT: $(patsubst %, $(WORKDIR)/tmp/%_muTect.filter.vcf.gz, $(tumors))
 
-
 $(WORKDIR)/tmp/%_muTect.filter.vcf.gz: $(WORKDIR)/muTect/%_muTect.vcf
 	@echo " --------- Filter variants --------- "
 	cat $(WORKDIR)/muTect/$*_muTect.vcf | awk -F"\t" '$$7~"PASS$$" || $$1~"^#" { if ($$1!~"^#") {$$3=$$1"_"$$2"_"$$4"/"$$5} ; print }' OFS="\t" | \
 		sed "s/\tFORMAT.*/\tFORMAT\tNORMAL\tTUMOR/" | \
 		$(vcftools)/vcf-sort > $(WORKDIR)/muTect/$*_muTect.filter.vcf
-# previously results were filtered as below:
-#		~/tools/vawk/vawk --header '{if ( (S$$TUMOR$$ALT_F1R2 + S$$TUMOR$$ALT_F2R1 + S$$TUMOR$$REF_F1R2 + S$$TUMOR$$REF_F2R1) >= 8 && \
-#		(S$$TUMOR$$ALT_F1R2 + S$$TUMOR$$ALT_F2R1 >= 4)  && \
-#		S$$TUMOR$$AF>= $(minALTfreq) && \
-#		S$$TUMOR$$ALT_F1R2>=1 && S$$TUMOR$$ALT_F2R1>=1 ) print }' | \
-#		$(vcftools)/vcf-sort > $(WORKDIR)/muTect/$*_muTect.filter.vcf
 	@echo " --------- compress and index the file --------- "
 	bgzip -c $(WORKDIR)/muTect/$*_muTect.filter.vcf > $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz
 	tabix -p vcf -f $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz
-
 
 # - Combine different vcf files
 #=============================================================
