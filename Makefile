@@ -29,12 +29,17 @@ $(WORKDIR)/bam/%.sam: #$(dream_data)/fastq/%_R1.fq
 		-o $@ $(REF) $(dream_data)/fastq/$*_R1.fq $(dream_data)/fastq/$*_R2.fq
 
 createBAMs: $(patsubst %, $(data)/bam/%.bam, $(samples))
-#$(data)/bam/%.bam: #$(WORKDIR)/bam/%.sam
+
 #	$(eval TMP_DIR := $(shell mktemp -d))
-$(data)/bam/%.bam:
+$(data)/bam/%.bam: $(WORKDIR)/bam/%.sam
 	java -Xmx8g -jar $(PICARD) SortSam I=$(WORKDIR)/bam/$*.sam \
 		SO=coordinate CREATE_INDEX=true QUIET=TRUE TMP_DIR=/home/druano/NeoSeq/tmp_picard \
 		O=$(data)/bam/$*.bam
+
+#generate a track IGV that can be used to plot coverage
+IGVtrack: $(patsubst %, $(data)/bam/%.bam.tdf, $(samples))
+$(data)/bam/%.bam.tdf:
+	java -jar ~/tools/IGVTools/igvtools.jar count -f min,max,mean $(data)/bam/$*.bam $(data)/bam/$*.bam.tdf /home/druano/tools/gatk-bundle-b38/Homo_sapiens_assembly38.fasta
 
 
 
@@ -53,6 +58,21 @@ $(data)/bam/%.bam:
 #4540490 + 1132704 with mate mapped to a different chr
 #3324847 + 593857 with mate mapped to a different chr (mapQ>=5)
 
+#=============================================================
+# Mark Duplicate Reads per sample
+#=============================================================
+dedup: $(patsubst %, %.dedup.bam, $(samples))
+%.dedup.bam:
+	@echo " --------- remove duplicated reads per sample --------- "
+	java -jar $(PICARD) MarkDuplicates \
+		MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 \
+		QUIET=TRUE \
+		ASSUME_SORTED=true \
+		CREATE_INDEX=true \
+		REMOVE_DUPLICATES=false \
+		METRICS_FILE=$*.dupl.metrics \
+		INPUT=$(WORKDIR)/bam/$*.bam \
+		OUTPUT=$(WORKDIR)/bam/$*.dedup.bam
 
 #======================================================================================
 # Calling variants with MuTect
@@ -113,3 +133,19 @@ $(WORKDIR)/vcf/%_CombineVariants.vcf:
 		-V:mutect $(WORKDIR)/tmp/$*_muTect.filter.vcf.gz \
 		-V:varscan $(WORKDIR)/tmp/$*_varScan.filter.vcf.gz\
 		--out $(WORKDIR)/vcf/$*_CombineVariants.vcf
+
+# - change strelka output
+#=============================================================
+$(WORKDIR)/tmp/%_strelka.vcf:
+	@echo " --------- add GT Information - just add 0/1 for every call both in normals and tumors --------- "
+#see: https://sites.google.com/site/strelkasomaticvariantcaller/home/faq
+	/home/druano/tools/somaticseq-2.3.1/utilities/modify_Strelka.py -infile $(WORKDIR)/strelka/$*/results/passed.somatic.snvs.vcf -outfile $(WORKDIR)/strelka/$*.snvs.vcf
+	/home/druano/tools/somaticseq-2.3.1/utilities/modify_Strelka.py -infile $(WORKDIR)/strelka/$*/results/passed.somatic.indels.vcf -outfile $(WORKDIR)/strelka/$*.indels.vcf
+	@echo " --------- merge SNVs and INDELs in a single file --------- "
+	@echo " --------- fix variant id --------- "
+	$(vcftools)/vcf-concat $(WORKDIR)/strelka/$*.indels.vcf $(WORKDIR)/strelka/$*.snvs.vcf | \
+	awk -F"\t" '$$7~"PASS" || $$1~"^#CHROM" { if ($$1!~"^#") {$$3=$$1"_"$$2"_"$$4"/"$$5} ; print }' OFS="\t"	| \
+	cat ~/Dropbox/NeoSeq/STRELKAheader.txt - | sed "s/OVERLAP;//g" | $(vcftools)/vcf-sort > $(WORKDIR)/strelka/$*_strelka.vcf
+	@echo " --------- compress and index the file --------- "
+	bgzip -c $(WORKDIR)/strelka/$*_strelka.vcf > $(WORKDIR)/tmp/$*_strelka.vcf.gz
+	tabix -p vcf -f $(WORKDIR)/tmp/$*_strelka.vcf.gz
