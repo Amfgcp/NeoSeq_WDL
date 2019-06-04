@@ -21,7 +21,6 @@ if __name__ == '__main__':
     size = int(arguments["-p"])
     file = arguments["-f"]
 
-
 #size = 8
 #file = "/exports/path-demiranda/usr/druano/scripts/1207.corrected.txt"
 
@@ -43,7 +42,9 @@ def getMer(shortPep, size):
     return results
 
 for line in fileinput.input(file):
-    words      = line.split()
+    words = line.split()
+    if not words[0].startswith("chr"):
+        continue
     varID      = words[0]
     WTpeptide  = words[1]
     ALTpeptide = words[2]
@@ -61,8 +62,7 @@ for line in fileinput.input(file):
         if start_WT and start_ALT and c[0] != c[1]:
             mutpos.append(i)
 
-
-#   only slide window over a ALTpeptide if this one had differences with WTpeptide
+    # only slide window over a ALTpeptide if this one had differences with WTpeptide
     for i in mutpos:
         shortPep = getShortPeptide(ALTpeptide, i)
         mers = getMer(shortPep, size)
