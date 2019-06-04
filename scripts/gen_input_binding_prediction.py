@@ -51,11 +51,14 @@ for line in fileinput.input(file):
     # By default (given by the 'x') the mismastch score is 0 and match is 1    
     alignments = pairwise2.align.globalxs(WTpeptide, ALTpeptide, -0.5, -0.1)    
     mutpos = []
-    start = False
+    start_WT = False
+    start_ALT = False
     for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
+        if c[0] != "-":
+            start_WT = True
         if c[1] != "-":
-            start = True
-        if start and c[0] != c[1]:
+            start_ALT = True
+        if start_WT and start_ALT and c[0] != c[1]:
             mutpos.append(i)
 
 
