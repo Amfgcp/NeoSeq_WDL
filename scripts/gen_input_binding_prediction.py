@@ -15,7 +15,6 @@ import sys
 import re
 from docopt import docopt
 from Bio import pairwise2
-from Bio.pairwise2 import format_alignment
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='myscript 1.0')
@@ -48,7 +47,17 @@ for line in fileinput.input(file):
     varID      = words[0]
     WTpeptide  = words[1]
     ALTpeptide = words[2]
-    mutpos = [i for i, c in enumerate(zip(WTpeptide, ALTpeptide)) if c[0] != c[1]]
+    # Global alignment with gap penalty of -0.5 (and -0.1 for extending it)
+    # By default (given by the 'x') the mismastch score is 0 and match is 1    
+    alignments = pairwise2.align.globalxs(WTpeptide, ALTpeptide, -0.5, -0.1)    
+    mutpos = []
+    start = False
+    for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
+        if c[1] != "-":
+            start = True
+        if start and c[0] != c[1]:
+            mutpos.append(i)
+
 
 #   only slide window over a ALTpeptide if this one had differences with WTpeptide
     for i in mutpos:
@@ -58,9 +67,26 @@ for line in fileinput.input(file):
         # print ("%s\t%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, shortPep, mers))
         # print ("%s" % (mutpos))
 
+
+
+### Testin area ###
 proteinSeqQuery="ATEEGDQEQDPEPEEEAAVEGEEEEEGAATAAAAPGHSAVPPPPPQLPPLP"
 proteinSeqseqFound="ATEEGDQEQDPEPEEEAAVEGEEEEGAATAAAAPGHSAVPPPPPQLPPLPP"
 
-alignments = pairwise2.align.localxx(proteinSeqQuery,proteinSeqseqFound)
-for a, b in zip(alignments[0][0], alignments[0][1]):
-    print (a, b)
+proteinSeqQuery="ASLEQRVQMQEDDIQLLKSALADVVRRLNITEEQQAVLNRKGPTKARPLMQ"
+proteinSeqseqFound="ASLEQRVQMQEDDIQLLKSALADVVWRLNITEEQQAVLNRKGPTKARPLMQ"
+
+proteinSeqQuery="LLQPIRDLTKNWEVDVAAQLGEYLEELDQICISFDEGKTTMNFIEAALLIQ"
+proteinSeqseqFound="PIRDLTKNWEVDVAAQLGEYLEKLDQICISFDEGKTTMNFLEAALLIQ"
+
+alignments = pairwise2.align.globalxs(proteinSeqQuery, proteinSeqseqFound, -0.5, -0.1)
+pos = []
+start = False
+for i, c in enumerate(zip(alignments[0][0][0:len(proteinSeqseqFound)], alignments[0][1])):
+    if c[1] != "-":
+        start = True
+    if start and c[0] != c[1]:
+        pos.append(i)
+
+print(pos)
+print(alignments)
