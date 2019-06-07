@@ -1,13 +1,15 @@
-"""My script
+"""
+This script is meant to generate the inputs for the binding prediction phase
 
 Usage:
-  ~/Dropbox/NeoSeq/scripts/generate_SHORTpeptides.py -f /home/druano/NeoSeq/NIC4.25peptide.txt -p 8
+  gen_input_binding_prediction.py -f NIC4.25peptide.txt -p 8 -b blast_peps
 
 Options:
   -h --help             Show this screen.
   --version             Show version.
   -p=8,9,10,11,12       Peptide length to be generated
   -f=<file>             Three column file containing varID, WTpeptide and ALTpeptide. ALT peptide has been currated for phases variants (using ex. ISOVAR)
+  -b=file_name          File name to write the peptides that are blasted (FASTA format)
 """
 
 import fileinput
@@ -21,12 +23,12 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 from Bio import SearchIO
 
 if __name__ == '__main__':
-    arguments = docopt(__doc__, version='myscript 1.0')
+    arguments = docopt(__doc__, version='Gen Inputs Bind Pred 1.0')
     size = int(arguments["-p"])
     file = arguments["-f"]
+    blast_peps_file_name = arguments["-b"] + ".fasta"
 
 #size = 8
-#file = "/exports/path-demiranda/usr/druano/scripts/1207.corrected.txt"
 
 def getShortPeptide(ALTsequence, mutpos):
 ## subtract -1 from int(mutpos) because python is 0 based
@@ -35,7 +37,7 @@ def getShortPeptide(ALTsequence, mutpos):
     result = ALTsequence[start:end]
     return result
 
-# create a peptides of x size using a sliding window
+# create peptides of size 'size' using a sliding window
 def getMer(shortPep, size):
     results = []
     for i in range(size):
@@ -44,6 +46,9 @@ def getMer(shortPep, size):
             break
         results.append(slidePeptide)
     return results
+
+
+blast_peps_file = open(blast_peps_file_name, "w+")
 
 for line in fileinput.input(file):
     words = line.split()
@@ -70,4 +75,18 @@ for line in fileinput.input(file):
     for i in mutpos:
         shortPep = getShortPeptide(ALTpeptide, i)
         mers = getMer(shortPep, size)
-        print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
+        # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
+        for mer in mers:
+            blast_peps_file.write(mer + "\n")
+
+blast_peps_file.close()
+
+# blastp_cline = NcbiblastpCommandline(query=blast_peps_file_name, \
+#                 task="blastp-short", \
+#                 db="/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/swissprot_taxid_9606/swissprot_taxid_9606", \
+#                 outfmt=5, \
+#                 out="NOW_swissprot9606_1.xml", \
+#                 remote=False)
+# print("Executing:\n\t", blastp_cline)
+# blastp_cline()
+# break # NOTE: remove, testing
