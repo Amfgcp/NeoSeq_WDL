@@ -13,8 +13,12 @@ Options:
 import fileinput
 import sys
 import re
+
 from docopt import docopt
+
 from Bio import pairwise2
+from Bio.Blast.Applications import NcbiblastpCommandline
+from Bio import SearchIO
 
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='myscript 1.0')
@@ -67,29 +71,3 @@ for line in fileinput.input(file):
         shortPep = getShortPeptide(ALTpeptide, i)
         mers = getMer(shortPep, size)
         print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
-        # print ("%s\t%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, shortPep, mers))
-        # print ("%s" % (mutpos))
-
-
-
-### Testin area ###
-proteinSeqQuery="ATEEGDQEQDPEPEEEAAVEGEEEEEGAATAAAAPGHSAVPPPPPQLPPLP"
-proteinSeqseqFound="ATEEGDQEQDPEPEEEAAVEGEEEEGAATAAAAPGHSAVPPPPPQLPPLPP"
-
-proteinSeqQuery="ASLEQRVQMQEDDIQLLKSALADVVRRLNITEEQQAVLNRKGPTKARPLMQ"
-proteinSeqseqFound="ASLEQRVQMQEDDIQLLKSALADVVWRLNITEEQQAVLNRKGPTKARPLMQ"
-
-proteinSeqQuery="LLQPIRDLTKNWEVDVAAQLGEYLEELDQICISFDEGKTTMNFIEAALLIQ"
-proteinSeqseqFound="PIRDLTKNWEVDVAAQLGEYLEKLDQICISFDEGKTTMNFLEAALLIQ"
-
-alignments = pairwise2.align.globalxs(proteinSeqQuery, proteinSeqseqFound, -0.5, -0.1)
-pos = []
-start = False
-for i, c in enumerate(zip(alignments[0][0][0:len(proteinSeqseqFound)], alignments[0][1])):
-    if c[1] != "-":
-        start = True
-    if start and c[0] != c[1]:
-        pos.append(i)
-
-print(pos)
-print(alignments)
