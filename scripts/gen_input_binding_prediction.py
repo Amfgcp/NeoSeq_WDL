@@ -77,7 +77,7 @@ for line in fileinput.input(file):
         mers = getMer(shortPep, size)
         # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
         for mer in mers:
-            blast_peps_file.write(mer + "\n")
+            blast_peps_file.write(">\n" + mer + "\n")
 
 blast_peps_file.close()
 
