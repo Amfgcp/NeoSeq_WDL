@@ -2,14 +2,13 @@
 This script is meant to generate the inputs for the binding prediction phase (e.g netMHC)
 
 Usage:
-  gen_input_binding_prediction.py -f NIC4.25peptide.txt -p 8 -b blast_peps
+  gen_input_binding_prediction.py -f NIC4.25peptide.txt -p 8
 
 Options:
   -h --help        Show this screen.
   --version        Show version.
   -p=8,9,10,11,12  Peptide length to be generated
   -f=<file>        Three column file containing varID, WTpeptide and ALTpeptide. ALT peptide has been currated for phases variants (using ex. ISOVAR)
-  -b=file_name     File name to write the peptides that are blasted (FASTA format)
 """
 
 import fileinput
@@ -28,7 +27,6 @@ if __name__ == '__main__':
     size = int(arguments["-p"])
     file = arguments["-f"]
     sample_name = file.split(".")[0]
-    blast_peps_file_name = arguments["-b"] + ".fasta"
 
 #size = 8
 
@@ -52,6 +50,7 @@ def getMer(shortPep, size):
     return results
 
 ### MAIN ###
+blast_peps_file_name = sample_name + "_blasted_peps.fasta"
 blast_peps_file = open(blast_peps_file_name, "w+")
 blast_peps = []
 
