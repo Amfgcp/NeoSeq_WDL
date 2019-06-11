@@ -27,6 +27,7 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version='Gen Inputs Bind Pred 1.0')
     size = int(arguments["-p"])
     file = arguments["-f"]
+    sample_name = file.split(".")[0]
     blast_peps_file_name = arguments["-b"] + ".fasta"
 
 #size = 8
@@ -89,7 +90,8 @@ for line in fileinput.input(file):
 blast_peps_file.close()
 
 ### BLAST ###
-xml_file_name = "swissprot9606_1.xml" # NOTE: turn this non-static
+xml_file_name = sample_name + "_swissprot9606.xml"
+# TODO: create param for DB and create file name for XML file accordingly
 blastp_cline = NcbiblastpCommandline( \
                 query=blast_peps_file_name, \
                 task="blastp-short", \
@@ -97,17 +99,20 @@ blastp_cline = NcbiblastpCommandline( \
                 outfmt=5, \
                 out=xml_file_name, \
                 remote=False)
+print("*****    BLAST   *****")
 print("Executing:\n\t", blastp_cline)
 stdout, stderr = blastp_cline()
 print("stdout: ", stdout)
 print("stderr: ", stderr)
+print("***** END OF BLAST *****")
 
 result_handle = open(xml_file_name)
 blast_records = NCBIXML.parse(result_handle)
 
 neoantigen_candidates = {}
 
-decoding_file = open("decoding.txt", "w+")
+decoding_file_name = sample_name + "_peptides" + str(size) + "mers_decoding.txt"
+decoding_file = open(decoding_file_name, "w+")
 
 for i, blast_record in enumerate(blast_records):
     print("/////////////////////////////", blast_record.query)
@@ -140,12 +145,9 @@ for i, blast_record in enumerate(blast_records):
 
 decoding_file.close()
 
-
-output_file_name = "inputs_bind_pred.fasta" # NOTE: turn this non-static
+output_file_name = sample_name + "_peptides" + str(size) + "mers.fsa"
 # Note that the same peptide generated from two different variants will be repeated
 with open(output_file_name, "w+") as output_file:
     for pep, varIDs in neoantigen_candidates.items():
         for _id in varIDs:
             output_file.write(">" + str(_id) + "\n" + pep + "\n")
-
-
