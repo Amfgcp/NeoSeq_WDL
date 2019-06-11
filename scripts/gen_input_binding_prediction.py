@@ -107,6 +107,8 @@ blast_records = NCBIXML.parse(result_handle)
 
 neoantigen_candidates = {}
 
+decoding_file = open("decoding.txt", "w+")
+
 for i, blast_record in enumerate(blast_records):
     print("/////////////////////////////", blast_record.query)
     print(i, " ", blast_peps[i])
@@ -130,14 +132,20 @@ for i, blast_record in enumerate(blast_records):
         if not candidate:
             break
     if candidate:
+        decoding_file.write(str(i) + "\t" + blast_record.query + "\n")
         try:
-            neoantigen_candidates[blast_peps[i]].add(blast_record.query)
+            neoantigen_candidates[blast_peps[i]].add(i)
         except KeyError: # key not in dictionary
-            neoantigen_candidates[blast_peps[i]] = {blast_record.query}
+            neoantigen_candidates[blast_peps[i]] = {i}
+
+decoding_file.close()
 
 
 output_file_name = "inputs_bind_pred.fasta" # NOTE: turn this non-static
-# writing to file is done after having discarded duplicate peptides
+# Note that the same peptide generated from two different variants will be repeated
 with open(output_file_name, "w+") as output_file:
     for pep, varIDs in neoantigen_candidates.items():
-        output_file.write(">" + ", ".join(varIDs) + "\n" + pep + "\n")
+        for _id in varIDs:
+            output_file.write(">" + str(_id) + "\n" + pep + "\n")
+
+
