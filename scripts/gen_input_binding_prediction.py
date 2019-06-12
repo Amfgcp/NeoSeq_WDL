@@ -43,13 +43,13 @@ def getMer(shortPep, size):
     return results
 
 ### MAIN ###
-def run(size):
+def run(size, ms_file, ms_written):
     blast_peps_file_name = sample_name + "_blasted_peptides_" + str(size) + "mers.fsa"
     blast_peps_file = open(blast_peps_file_name, "w+")
     blast_peps = []
 
     # NOTE: "If you just want to read or write one file see open()"
-    for line in fileinput.input(file):
+    for line in fileinput.input(input_file):
         words = line.split()
         if not words[0].startswith("chr"):
             continue
@@ -62,6 +62,7 @@ def run(size):
         mutpos = []
         start_WT = False
         start_ALT = False
+        # NOTE: Check if 1st alignment has the best score
         for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
             if c[0] != "-":
                 start_WT = True
@@ -70,17 +71,23 @@ def run(size):
             if start_WT and start_ALT and c[0] != c[1]:
                 mutpos.append(i)
 
+        ms_suffix = []
         # only slide window over a ALTpeptide if this one had differences with WTpeptide
         for i in mutpos:
             shortPep = getShortPeptide(ALTpeptide, i)
             mers = getMer(shortPep, size)
             # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
             # NOTE: allows repeated peptides, thus later blasted more than once
+            ms_suffix.append(str(i+1))
             for mer in mers:
                 blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                 blast_peps.append(mer)
+        if not ms_written:
+            ms_file.write(varID + "_M" + ",".join(ms_suffix) + "\t" + ALTpeptide + "\n")
 
     blast_peps_file.close()
+    ms_file.close()
+    ms_written = True
 
     ### BLAST ###
     xml_file_name = sample_name + "_blast_output_" + str(size) + "mers_swissprot9606.xml"
@@ -153,7 +160,13 @@ def run(size):
 if __name__ == '__main__':
     arguments = docopt(__doc__, version='Gen Inputs Bind Pred 1.0')
     sizes = [int(i) for i in arguments["-p"].split(",")] 
-    file = arguments["-f"]
-    sample_name = file.split(".")[0]
+    input_file = arguments["-f"]
+    sample_name = input_file.split(".")[0]
+    
+    mass_spec_file_name = sample_name + "_2massSpec.txt"
+    mass_spec_file = open(mass_spec_file_name, "w+")
+    mass_spec_file.write("varID\tALTpeptide\n")
+    mass_spec_written = False
+
     for size in sizes:
-        run(size)
+        run(size, mass_spec_file, mass_spec_written)
