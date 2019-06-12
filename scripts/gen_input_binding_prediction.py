@@ -14,6 +14,7 @@ Options:
 import fileinput
 import sys
 import re
+import os
 
 from docopt import docopt
 
@@ -163,7 +164,10 @@ if __name__ == '__main__':
     input_file = arguments["-f"]
     sample_name = input_file.split(".")[0]
     
-    mass_spec_file_name = sample_name + "_2massSpec.txt"
+    mass_spec_folder_name = "51aa/"
+    if not os.path.exists(mass_spec_folder_name):
+        os.mkdir(mass_spec_folder_name)
+    mass_spec_file_name = mass_spec_folder_name + sample_name + "_2massSpec.txt"
     mass_spec_file = open(mass_spec_file_name, "w+")
     mass_spec_file.write("varID\tALTpeptide\n")
     mass_spec_written = False
