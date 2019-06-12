@@ -44,7 +44,7 @@ def getMer(shortPep, size):
 
 ### MAIN ###
 def run(size):
-    blast_peps_file_name = sample_name + "_blasted_peptides" + str(size) + "_mers.fsa"
+    blast_peps_file_name = sample_name + "_blasted_peptides_" + str(size) + "mers.fsa"
     blast_peps_file = open(blast_peps_file_name, "w+")
     blast_peps = []
 
@@ -83,7 +83,7 @@ def run(size):
     blast_peps_file.close()
 
     ### BLAST ###
-    xml_file_name = sample_name + "_blast_output" + str(size) + "mers_swissprot9606.xml"
+    xml_file_name = sample_name + "_blast_output_" + str(size) + "mers_swissprot9606.xml"
     # TODO: create param for DB and create file name for XML file accordingly
     blastp_cline = NcbiblastpCommandline( \
                     query=blast_peps_file_name, \
@@ -104,8 +104,11 @@ def run(size):
 
     neoantigen_candidates = {}
 
-    decoding_file_name = sample_name + "_peptides" + str(size) + "mers_decoding.txt"
+    decoding_file_name = sample_name + "_peptides_" + str(size) + "mers_decoding.txt"
     decoding_file = open(decoding_file_name, "w+")
+
+    perfect_hits_file_name = sample_name + "_perfect_hits_" + str(size) + "mer.txt"
+    perfect_hits_file = open(perfect_hits_file_name, "w+")
 
     for i, blast_record in enumerate(blast_records):
         print("/////////////////////////////", blast_record.query)
@@ -126,6 +129,7 @@ def run(size):
                 if (size == hsp.identities == hsp.align_length):
                     print("FOUND PERFECT HIT:\t" + blast_peps[i])
                     candidate = False
+                    perfect_hits_file.write(blast_peps[i] + "\t" + blast_record.query + "\t" + alignment.title + "\n")
                     break
             if not candidate:
                 break
@@ -137,8 +141,9 @@ def run(size):
                 neoantigen_candidates[blast_peps[i]] = {i}
 
     decoding_file.close()
+    perfect_hits_file.close()
 
-    output_file_name = sample_name + "_peptides" + str(size) + "mers.fsa"
+    output_file_name = sample_name + "_peptides_" + str(size) + "mers.fsa"
     # Note that the same peptide generated from two different variants will be repeated
     with open(output_file_name, "w+") as output_file:
         for pep, varIDs in neoantigen_candidates.items():
