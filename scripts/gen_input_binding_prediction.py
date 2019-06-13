@@ -19,10 +19,12 @@ import os
 from docopt import docopt
 
 from Bio import pairwise2
+from Bio.pairwise2 import format_alignment
 from Bio.Blast.Applications import NcbiblastpCommandline
 from Bio import SearchIO
 from Bio.Blast import NCBIXML
 
+from math import log
 
 def getShortPeptide(ALTsequence, mutpos):
 ## subtract -1 from int(mutpos) because python is 0 based
@@ -43,6 +45,13 @@ def getMer(shortPep, size):
         results.append(slidePeptide)
     return results
 
+def gap_function(x, y):  # x is gap position in seq, y is gap length
+    if y == 0:  # No gap
+        return 0
+    elif y == 1:  # Gap open penalty
+        return -0.6 + (x/51) / 2
+    return -0.6 + (x/51) / 2 - 0.1 # gap extension penalty
+
 ### MAIN ###
 def run(size, ms_file, ms_written):
     blast_peps_file_name = sample_name + "_blasted_peptides_" + str(size) + "mers.fsa"
@@ -59,7 +68,9 @@ def run(size, ms_file, ms_written):
         ALTpeptide = words[2]
         # Global alignment with gap penalty of -0.5 (and -0.1 for extending it)
         # The 'x' default means the mismastch score is 0 and match is 1
-        alignments = pairwise2.align.globalxs(WTpeptide, ALTpeptide, -0.5, -0.1)    
+        alignments = pairwise2.align.globalxc(WTpeptide, ALTpeptide, gap_function, gap_function, penalize_end_gaps=(False, True))
+        for ali in alignments:
+            print(format_alignment(*ali))
         mutpos = []
         start_WT = False
         start_ALT = False
