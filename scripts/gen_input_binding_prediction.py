@@ -52,6 +52,22 @@ def gap_function(x, y):  # x is gap position in seq, y is gap length
         return -0.6 + (x/51) / 2
     return -0.6 + (x/51) / 2 - 0.1 # gap extension penalty
 
+# assumes varID format: chrX_X_X/X, e.g., chr3_112563516_AGTATTCTGCCAAT/A
+def check_if_frameshift(varID):
+    split_varID = varID.split("/")
+    ref = split_varID[0].split("_")[-1]
+    alt = split_varID[-1]
+    indel_len = abs(len(ref) - len(alt))
+    if (len(ref) == 1 and len(alt) == 2) or (len(ref) == 2 and len(alt) == 1):
+        # TODO: this should throw exception not prints but maybe not here
+        print("varID:", varID, "might not be well formatted")
+        print("SNVs are expected to be formatted as 'chrX_X_X/X'")
+        return False
+    if indel_len % 3 != 0:
+        print(varID, "is frameshift")
+        return True
+    return False
+
 ### MAIN ###
 def run(sizes):
 
@@ -85,16 +101,17 @@ def run(sizes):
             start_WT = False
             start_ALT = False
             ALT_offset = 0
+            is_frameshitft = check_if_frameshift(varID)
             # NOTE: Check if 1st alignment has the best score
             for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
                 if c[0] != "-":
                     start_WT = True
                 if c[1] != "-":
                     start_ALT = True
-                if start_WT and start_ALT and c[0] != c[1]:
-                    mutpos.append(i + ALT_offset)
                 if not start_ALT and c[1] == "-":
                     ALT_offset -= 1
+                if start_WT and start_ALT and c[0] != c[1]:
+                    mutpos.append(i + ALT_offset)
 
             mass_spec_suffix = []
             # only slide window over a ALTpeptide if this one had differences with WTpeptide
