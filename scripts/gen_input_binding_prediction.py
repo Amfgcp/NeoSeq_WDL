@@ -84,6 +84,7 @@ def run(sizes):
             mutpos = []
             start_WT = False
             start_ALT = False
+            ALT_offset = 0
             # NOTE: Check if 1st alignment has the best score
             for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
                 if c[0] != "-":
@@ -91,7 +92,9 @@ def run(sizes):
                 if c[1] != "-":
                     start_ALT = True
                 if start_WT and start_ALT and c[0] != c[1]:
-                    mutpos.append(i)
+                    mutpos.append(i + ALT_offset)
+                if not start_ALT and c[1] == "-":
+                    ALT_offset -= 1
 
             mass_spec_suffix = []
             # only slide window over a ALTpeptide if this one had differences with WTpeptide
@@ -100,7 +103,7 @@ def run(sizes):
                 mers = getMer(shortPep, size)
                 # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
                 # NOTE: allows repeated peptides, thus later blasted more than once
-                mass_spec_suffix.append(str(i+1))
+                mass_spec_suffix.append(str(i + 1)) # mass spec starts counting at 1
                 for mer in mers:
                     blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                     blast_peps.append(mer)
