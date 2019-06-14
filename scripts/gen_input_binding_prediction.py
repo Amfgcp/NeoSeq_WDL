@@ -101,9 +101,14 @@ def run(sizes):
             start_WT = False
             start_ALT = False
             ALT_offset = 0
-            is_frameshitft = check_if_frameshift(varID)
+            is_frameshift = check_if_frameshift(varID)
+            found_first_mut = False
             # NOTE: Check if 1st alignment has the best score
             for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
+                if found_first_mut and is_frameshift:
+                    for x in range(i + ALT_offset, len(ALTpeptide) + ALT_offset):
+                        mutpos.append(x)
+                    break
                 if c[0] != "-":
                     start_WT = True
                 if c[1] != "-":
@@ -111,6 +116,7 @@ def run(sizes):
                 if not start_ALT and c[1] == "-":
                     ALT_offset -= 1
                 if start_WT and start_ALT and c[0] != c[1]:
+                    found_first_mut = True
                     mutpos.append(i + ALT_offset)
 
             mass_spec_suffix = []
