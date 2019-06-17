@@ -26,23 +26,29 @@ from Bio.Blast import NCBIXML
 
 from math import log
 
-def getShortPeptide(ALTsequence, mutpos, size):
+'''
+Returns a sub-peptide of 'ALTsequence' centered around 'mutpos'. If
+'ALTsequence' is long enough, sub-peptide is of size 2 * 'size' for odd
+'size' and of 2 * 'size' - 1 if it's even.
+'''
+def get_short_peptide(ALTsequence, mutpos, size):
 ## subtract -1 from int(mutpos) because python is 0 based
-    start = max(0, (int(mutpos) + 1  - size))
-    end   = (int(mutpos) ) + size
-    result = ALTsequence[start:end]
-    return result
+    start = max(0, mutpos + 1 - size)
+    end = mutpos + size
+    return ALTsequence[start:end]
 
 # create peptides of size 'size' using a sliding window
 # NOTE: can occur that for a given input peptide  different sliding windows
 # contain the same short peptide sequence
-def getMer(shortPep, size):
+def get_mers(short_pep, size):
     results = []
     for i in range(size):
-        slidePeptide = shortPep[i:i+size]
-        if len(slidePeptide) < size:
+        slide_peptide = short_pep[i:i + size]
+        if len(slide_peptide) < size:
+            # depends on python len for arrays that are indexed ouside of bounds
+            # to still only output the length of the content
             break
-        results.append(slidePeptide)
+        results.append(slide_peptide)
     return results
 
 def gap_function(x, y):  # x is gap position in seq, y is gap length
@@ -122,8 +128,8 @@ def run(sizes):
             mass_spec_suffix = []
             # only slide window over a ALTpeptide if this one had differences with WTpeptide
             for i in mutpos:
-                shortPep = getShortPeptide(ALTpeptide, i, size)
-                mers = getMer(shortPep, size)
+                shortPep = get_short_peptide(ALTpeptide, i, size)
+                mers = get_mers(shortPep, size)
                 # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
                 # NOTE: allows repeated peptides, thus later blasted more than once
                 mass_spec_suffix.append(str(i + 1)) # mass spec starts counting at 1
@@ -139,15 +145,17 @@ def run(sizes):
         mass_spec_written = True
 
         ### BLAST ###
-        xml_file_name = sample_name + "_blast_output_" + str(size) + "mers_swissprot9606.xml"
-        # TODO: create param for DB and create file name for XML file accordingly
+        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
+        db_name = db_path.split("/")[-1]
+        # TODO: create user param for DB and create file name for XML file accordingly
+        xml_file_name = sample_name + "_blast_output_" + str(size) + db_name + ".xml"
         blastp_cline = NcbiblastpCommandline( \
-                        query=blast_peps_file_name, \
-                        task="blastp-short", \
-                        db="/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/swissprot_taxid_9606/swissprot_taxid_9606", \
-                        outfmt=5, \
-                        out=xml_file_name, \
-                        remote=False)
+                        query = blast_peps_file_name, \
+                        task = "blastp-short", \
+                        db = db_path, \
+                        outfmt = 5, \
+                        out = xml_file_name, \
+                        remote = False)
         print("*****    BLAST   *****")
         print("Executing:\n\t", blastp_cline)
         stdout, stderr = blastp_cline()
