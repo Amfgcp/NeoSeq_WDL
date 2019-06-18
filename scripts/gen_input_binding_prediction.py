@@ -24,7 +24,7 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 from Bio import SearchIO
 from Bio.Blast import NCBIXML
 
-from math import log
+from math import log, floor
 
 '''
 Returns a sub-peptide of 'ALTsequence' centered around 'mutpos'. If
@@ -73,6 +73,24 @@ def check_if_frameshift(varID):
         print(varID, "is frameshift")
         return True
     return False
+
+def take_sub_peptide(ALTseq, pos, size):
+    alt_len = len(ALTseq)
+    if alt_len <= size:
+        # print("too small of seq")
+        return ALTseq
+    if alt_len > size and not is_frameshift:
+        half_size = floor(size/2)
+        if pos <= half_size:
+            # print("cut on left")
+            return ALTseq[: size]
+        elif alt_len - pos - 1 <= half_size:
+            # print("cut on right")
+            return ALTseq[alt_len - size:]
+        else:
+            # print("centered2")
+            return ALTseq[pos - half_size:pos + half_size + 1]
+
 
 ### MAIN ###
 def run(sizes):
