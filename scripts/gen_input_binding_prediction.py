@@ -2,13 +2,14 @@
 This script is meant to generate the inputs for the binding prediction phase (e.g netMHC)
 
 Usage:
-  gen_input_binding_prediction.py -f NIC4.25peptide.txt -p 8
+  gen_input_binding_prediction.py -f NIC4.25peptide.txt -p 8 -d /path/to/db
 
 Options:
   -h --help        Show this screen.
   --version        Show version.
   -p=8,9,10,11,12  Peptide length to be generated
   -f=<file>        Three column file containing varID, WTpeptide and ALTpeptide. ALT peptide has been currated for phases variants (using ex. ISOVAR)
+  -d=<path/to/db> Path to database
 """
 
 import fileinput
@@ -106,13 +107,13 @@ def run(sizes):
     mass_spec_folder_name = "51aa/"
     if not os.path.exists(mass_spec_folder_name):
         os.mkdir(mass_spec_folder_name)
-    mass_spec_file_name = mass_spec_folder_name + sample_name + "_2massSpec.txt"
+    mass_spec_file_name = mass_spec_folder_name + sample_name + "_2massSpec" + "_" + database + ".txt"
     mass_spec_file = open(mass_spec_file_name, "w+")
     mass_spec_file.write("varID\tALTpeptide_all_aa\n")
     mass_spec_written = False
 
     for size in sizes:
-        blast_peps_file_name = sample_name + "_blasted_peptides_" + str(size) + "mers.fsa"
+        blast_peps_file_name = sample_name + "_blasted_peptides_" + str(size) + "mers" + "_" + database + ".fsa"
         blast_peps_file = open(blast_peps_file_name, "w+")
         blast_peps = []
 
@@ -127,8 +128,9 @@ def run(sizes):
             # Global alignment with gap penalty of -0.5 (and -0.1 for extending it)
             # The 'x' default means the mismastch score is 0 and match is 1
             alignments = pairwise2.align.globalxc(WTpeptide, ALTpeptide, gap_function, gap_function, penalize_end_gaps=(False, True))
-            # for ali in alignments:
-            #     print(format_alignment(*ali))
+            print("---", varID)
+            for ali in alignments:
+                print(format_alignment(*ali))
             mutpos = []
             start_WT = False
             start_ALT = False
@@ -171,10 +173,14 @@ def run(sizes):
         mass_spec_written = True
 
         ### BLAST ###
-        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
-        db_name = db_path.split("/")[-1]
+        if database == "RS":
+            db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
+        elif database == "SP":
+            db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/swissprot_taxid_9606/swissprot_taxid_9606"
+        else:
+            raise Exception("Unknown database: {}".format(database))
         # TODO: create user param for DB and create file name for XML file accordingly
-        xml_file_name = sample_name + "_blast_output_" + str(size) + db_name + ".xml"
+        xml_file_name = sample_name + "_blast_output_" + str(size) + "mers_" + database + ".xml"
         blastp_cline = NcbiblastpCommandline( \
                         query = blast_peps_file_name, \
                         task = "blastp-short", \
@@ -194,10 +200,10 @@ def run(sizes):
 
         neoantigen_candidates = {}
 
-        decoding_file_name = sample_name + "_peptides_" + str(size) + "mers_decoding.txt"
+        decoding_file_name = sample_name + "_peptides_" + str(size) + "mers_decoding" + "_" + database + ".txt"
         decoding_file = open(decoding_file_name, "w+")
 
-        perfect_hits_file_name = sample_name + "_perfect_hits_" + str(size) + "mer.txt"
+        perfect_hits_file_name = sample_name + "_perfect_hits_" + str(size) + "mers" + "_" + database + ".txt"
         perfect_hits_file = open(perfect_hits_file_name, "w+")
 
         for i, blast_record in enumerate(blast_records):
@@ -233,7 +239,7 @@ def run(sizes):
         decoding_file.close()
         perfect_hits_file.close()
 
-        output_file_name = sample_name + "_peptides_" + str(size) + "mers.fsa"
+        output_file_name = sample_name + "_peptides_" + str(size) + "mers" + "_" + database + ".fsa"
         # Note that the same peptide generated from two different variants will be repeated
         with open(output_file_name, "w+") as output_file:
             for pep, varIDs in neoantigen_candidates.items():
@@ -245,6 +251,6 @@ if __name__ == '__main__':
     arguments = docopt(__doc__, version='Gen Inputs Bind Pred 1.0')
     sizes = [int(i) for i in arguments["-p"].split(",")]
     input_file = arguments["-f"]
-    sample_name = input_file.split(".")[0]
-
+    sample_name = os.path.splitext(os.path.basename(input_file))[0]
+    database = arguments["-d"]
     run(sizes)
