@@ -76,22 +76,29 @@ def check_if_frameshift(varID):
 
 def take_sub_peptide(ALTseq, pos, size, is_frameshift):
     alt_len = len(ALTseq)
+    if pos >= (alt_len - 1) or pos < 0:
+        incorrect_mut_pos = ("Mutation position is not valid, value is "
+                             "negative or bigger than ALT sequence length. "
+                             "The value of pos was:", pos)
+        raise Exception(incorrect_mut_pos)
     if alt_len <= size:
         print("too small of seq")
         return ALTseq
-    if alt_len > size and not is_frameshift:
+    if alt_len > size:
         half_size = floor(size/2)
         if pos <= half_size:
             print("cut on left")
+            if is_frameshift:
+                return ALTseq
             return ALTseq[: size]
         elif alt_len - pos - 1 <= half_size:
             print("cut on right")
             return ALTseq[alt_len - size:]
         else:
             print("centered")
+            if is_frameshift:
+                return ALTseq[pos - half_size:]
             return ALTseq[pos - half_size:pos + half_size + 1]
-    if is_frameshift:
-        return ALTseq[pos:]
 
 ### MAIN ###
 def run(sizes):
