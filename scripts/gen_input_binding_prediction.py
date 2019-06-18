@@ -76,10 +76,10 @@ def check_if_frameshift(varID):
 
 def take_sub_peptide(ALTseq, pos, size, is_frameshift):
     alt_len = len(ALTseq)
-    if pos >= (alt_len - 1) or pos < 0:
+    if pos >= alt_len or pos < 0:
         incorrect_mut_pos = ("Mutation position is not valid, value is "
                              "negative or bigger than ALT sequence length. "
-                             "The value of pos was:", pos)
+                             "The value of pos was: {} and length: {}").format(pos, alt_len - 1)
         raise Exception(incorrect_mut_pos)
     if alt_len <= size:
         print("too small of seq")
@@ -108,7 +108,7 @@ def run(sizes):
         os.mkdir(mass_spec_folder_name)
     mass_spec_file_name = mass_spec_folder_name + sample_name + "_2massSpec.txt"
     mass_spec_file = open(mass_spec_file_name, "w+")
-    mass_spec_file.write("varID\tALTpeptide\n")
+    mass_spec_file.write("varID\tALTpeptide_all_aa\n")
     mass_spec_written = False
 
     for size in sizes:
@@ -154,8 +154,8 @@ def run(sizes):
             mass_spec_suffix = []
             # only slide window over a ALTpeptide if this one had differences with WTpeptide
             for i in mutpos:
-                shortPep = get_short_peptide(ALTpeptide, i, size)
-                mers = get_mers(shortPep, size)
+                short_pep = get_short_peptide(ALTpeptide, i, size)
+                mers = get_mers(short_pep, size)
                 # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
                 # NOTE: allows repeated peptides, thus later blasted more than once
                 mass_spec_suffix.append(str(i + 1)) # mass spec starts counting at 1
