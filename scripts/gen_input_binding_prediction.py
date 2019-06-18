@@ -74,23 +74,24 @@ def check_if_frameshift(varID):
         return True
     return False
 
-def take_sub_peptide(ALTseq, pos, size):
+def take_sub_peptide(ALTseq, pos, size, is_frameshift):
     alt_len = len(ALTseq)
     if alt_len <= size:
-        # print("too small of seq")
+        print("too small of seq")
         return ALTseq
     if alt_len > size and not is_frameshift:
         half_size = floor(size/2)
         if pos <= half_size:
-            # print("cut on left")
+            print("cut on left")
             return ALTseq[: size]
         elif alt_len - pos - 1 <= half_size:
-            # print("cut on right")
+            print("cut on right")
             return ALTseq[alt_len - size:]
         else:
-            # print("centered2")
+            print("centered")
             return ALTseq[pos - half_size:pos + half_size + 1]
-
+    if is_frameshift:
+        return ALTseq[pos:]
 
 ### MAIN ###
 def run(sizes):
