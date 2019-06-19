@@ -112,13 +112,13 @@ def run(sizes):
     mass_spec_file.write("varID\tALTpeptide_all_aa\n")
     mass_spec_written = False
 
-    mass_spec_25aa_folder_name = "25aa/"
-    if not os.path.exists(mass_spec_25aa_folder_name):
-        os.mkdir(mass_spec_25aa_folder_name)
-    mass_spec_25aa_file_name = mass_spec_25aa_folder_name + sample_name + "_25aa_massSpec" + "_" + database + ".txt"
-    mass_spec_25aa_file = open(mass_spec_25aa_file_name, "w+")
-    mass_spec_25aa_file.write("varID\tALTpeptide_25aa\n")
-    mass_spec_25aa_written = False
+    reactivity_25aa_folder_name = "25aa/"
+    if not os.path.exists(reactivity_25aa_folder_name):
+        os.mkdir(reactivity_25aa_folder_name)
+    reactivity_25aa_file_name = reactivity_25aa_folder_name + sample_name + "_25aa_" + database + ".txt"
+    reactivity_25aa_file = open(reactivity_25aa_file_name, "w+")
+    reactivity_25aa_file.write("varID\tALTpeptide_25aa\n")
+    reactivity_25aa_written = False
 
 
     for size in sizes:
@@ -174,9 +174,9 @@ def run(sizes):
                     blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                     blast_peps.append(mer)
 
-                if not mass_spec_25aa_written:
+                if not reactivity_25aa_written:
                     alt_pep_25aa = take_sub_peptide(ALTpeptide, i, 25, is_frameshift)
-                    mass_spec_25aa_file.write(varID + "\t" + alt_pep_25aa + "\t" \
+                    reactivity_25aa_file.write(varID + "\t" + alt_pep_25aa + "\t" \
                                                 + str(i) + " " + str(is_frameshift) + "\n")
 
             if not mass_spec_written:
@@ -184,9 +184,9 @@ def run(sizes):
 
         blast_peps_file.close()
         mass_spec_file.close()
-        mass_spec_25aa_file.close()
+        reactivity_25aa_file.close()
         mass_spec_written = True
-        mass_spec_25aa_written = True
+        reactivity_25aa_written = True
 
         ### BLAST ###
         if database == "RS":
