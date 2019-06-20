@@ -29,8 +29,8 @@ from math import log, floor
 
 '''
 Returns a sub-peptide of 'ALTsequence' centered around 'mutpos'. If
-'ALTsequence' is long enough, sub-peptide is of size 2 * 'size' for odd
-'size' and of 2 * 'size' - 1 if it's even.
+'ALTsequence' is long enough, sub-peptide is of size 2 * 'size' - 1 for odd
+'size' and of 2 * 'size' if it's even.
 '''
 def get_short_peptide(ALTsequence, mutpos, size):
 ## subtract -1 from int(mutpos) because python is 0 based
@@ -65,11 +65,6 @@ def check_if_frameshift(varID):
     ref = split_varID[0].split("_")[-1]
     alt = split_varID[-1]
     indel_len = abs(len(ref) - len(alt))
-    if (len(ref) == 1 and len(alt) == 2) or (len(ref) == 2 and len(alt) == 1):
-        # TODO: this should throw exception not prints but maybe not here
-        print("varID:", varID, "might not be well formatted")
-        print("SNVs are expected to be formatted as 'chrX_X_X/X'")
-        return False
     if indel_len % 3 != 0:
         print(varID, "is frameshift")
         return True
@@ -117,7 +112,7 @@ def run(sizes):
         os.mkdir(reactivity_25aa_folder_name)
     reactivity_25aa_file_name = reactivity_25aa_folder_name + sample_name + "_25aa_" + database + ".txt"
     reactivity_25aa_file = open(reactivity_25aa_file_name, "w+")
-    reactivity_25aa_file.write("varID\tALTpeptide_25aa\n")
+    reactivity_25aa_file.write("varID\tWTpeptide\tALTpeptide_25aa\n")
     reactivity_25aa_written = False
 
 
@@ -144,9 +139,9 @@ def run(sizes):
             start_WT = False
             start_ALT = False
             ALT_offset = 0
+            WT_offset = 0
             is_frameshift = check_if_frameshift(varID)
             found_first_mut = False
-            # NOTE: Check if 1st alignment has the best score
             for i, c in enumerate(zip(alignments[0][0][0:len(ALTpeptide)], alignments[0][1])):
                 if found_first_mut and is_frameshift:
                     for x in range(i + ALT_offset, len(ALTpeptide) + ALT_offset):
@@ -156,28 +151,42 @@ def run(sizes):
                     start_WT = True
                 if c[1] != "-":
                     start_ALT = True
+                if not start_WT and c[0] == "-":
+                    WT_offset -= 1
                 if not start_ALT and c[1] == "-":
                     ALT_offset -= 1
                 if start_WT and start_ALT and c[0] != c[1]:
                     found_first_mut = True
-                    mutpos.append(i + ALT_offset)
+                    mutpos.append((i + ALT_offset, i + WT_offset))
+                    print("Appended new mutpos", mutpos)
 
             mass_spec_suffix = []
-            # only slide window over a ALTpeptide if this one had differences with WTpeptide
-            for i in mutpos:
-                short_pep = get_short_peptide(ALTpeptide, i, size)
+            # only slide window over an ALTpeptide if it had differences with WTpeptide
+            for e in mutpos:
+                if isinstance(e, tuple):
+                    i = e
+                elif isinstance(e, int):
+                    i = (e, None)
+                else:
+                    raise Exception("mutpos can only be of type int or tuple: {}".format(i))
+                print("inside for loop", i, mutpos)
+                short_pep = get_short_peptide(ALTpeptide, i[0], size)
                 mers = get_mers(short_pep, size)
                 # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
                 # NOTE: allows repeated peptides, thus later blasted more than once
-                mass_spec_suffix.append(str(i + 1)) # mass spec starts counting at 1
+                mass_spec_suffix.append(str(i[0] + 1)) # mass spec starts counting at 1
                 for mer in mers:
                     blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                     blast_peps.append(mer)
 
                 if not reactivity_25aa_written:
-                    alt_pep_25aa = take_sub_peptide(ALTpeptide, i, 25, is_frameshift)
-                    reactivity_25aa_file.write(varID + "\t" + alt_pep_25aa + "\t" \
-                                                + str(i) + " " + str(is_frameshift) + "\n")
+                    alt_pep_25aa = take_sub_peptide(ALTpeptide, i[0], 25, is_frameshift)
+                    if isinstance(e, tuple):
+                        wt_pep_25aa = take_sub_peptide(WTpeptide, i[1], 25, False)
+
+                    reactivity_25aa_file.write(varID + "\t" + wt_pep_25aa \
+                                                     + "\t" + alt_pep_25aa \
+                                                     + "\t" + str(i) + " " + str(is_frameshift) + "\n")
 
             if not mass_spec_written:
                 mass_spec_file.write(varID + "_M" + ",".join(mass_spec_suffix) + "\t" + ALTpeptide + "\n")
