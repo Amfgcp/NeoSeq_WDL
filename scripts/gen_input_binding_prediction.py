@@ -70,6 +70,12 @@ def check_if_frameshift(varID):
         return True
     return False
 
+'''
+Returns a tuple with the subsequence of specified 'size' centered (when possible)
+around the mutation and its starting index on the input alt sequence, 'ALTseq'.
+This index is useful for obtaining the Wild Type subsequence aligned at the start
+of the alt subsequence.
+'''
 def take_sub_peptide(ALTseq, pos, size, is_frameshift):
     alt_len = len(ALTseq)
     if pos >= alt_len or pos < 0:
@@ -79,22 +85,22 @@ def take_sub_peptide(ALTseq, pos, size, is_frameshift):
         raise Exception(incorrect_mut_pos)
     if alt_len <= size:
         print("too small of seq")
-        return ALTseq
+        return (ALTseq, 0)
     if alt_len > size:
         half_size = floor(size/2)
         if pos <= half_size:
             print("cut on left")
             if is_frameshift:
-                return ALTseq
-            return ALTseq[: size]
+                return (ALTseq, 0)
+            return (ALTseq[: size], 0)
         elif alt_len - pos - 1 <= half_size:
             print("cut on right")
-            return ALTseq[alt_len - size:]
+            return (ALTseq[alt_len - size:], alt_len - size)
         else:
             print("centered")
             if is_frameshift:
-                return ALTseq[pos - half_size:]
-            return ALTseq[pos - half_size:pos + half_size + 1]
+                return (ALTseq[pos - half_size:], pos - half_size)
+            return (ALTseq[pos - half_size:pos + half_size + 1], pos - half_size)
 
 ### MAIN ###
 def run(sizes):
@@ -180,9 +186,10 @@ def run(sizes):
                     blast_peps.append(mer)
 
                 if not reactivity_25aa_written:
-                    alt_pep_25aa = take_sub_peptide(ALTpeptide, i[0], 25, is_frameshift)
-                    if isinstance(e, tuple):
-                        wt_pep_25aa = take_sub_peptide(WTpeptide, i[1], 25, False)
+                    alt_pep_25aa, alt_pep_25aa_start = take_sub_peptide(ALTpeptide, i[0], 25, is_frameshift)
+                    # NOTE: 'take_sub_peptide' can be made to return 'wt_pep_25aa' directly
+                    wt_pep_25aa = WTpeptide[alt_pep_25aa_start - ALT_offset + WT_offset:\
+                                        alt_pep_25aa_start - ALT_offset + WT_offset + 25]
 
                     reactivity_25aa_file.write(varID + "\t" + wt_pep_25aa \
                                                      + "\t" + alt_pep_25aa \
