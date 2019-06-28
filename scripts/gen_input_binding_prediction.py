@@ -28,19 +28,17 @@ from Bio.Blast import NCBIXML
 from math import log, floor
 
 '''
-Returns a sub-peptide of 'ALTsequence' centered around 'mutpos'. If
-'ALTsequence' is long enough, sub-peptide is of size 2 * 'size' - 1 for odd
-'size' and of 2 * 'size' if it's even.
+Returns a sub-peptide of 'ALTsequence' centered around 'mutpos' and of size
+2 * 'size' - 1.
 '''
 def get_short_peptide(ALTsequence, mutpos, size):
-## subtract -1 from int(mutpos) because python is 0 based
-    start = max(0, mutpos + 1 - size)
-    end = mutpos + size
-    return ALTsequence[start:end]
+    return ALTsequence[max(0, mutpos - size + 1):mutpos + size]
 
-# create peptides of size 'size' using a sliding window
-# NOTE: can occur that for a given input peptide  different sliding windows
-# contain the same short peptide sequence
+'''
+Create peptides of size 'size' using a sliding window
+NOTE: can occur that for a given input peptide  different sliding windows
+contain the same short peptide sequence.
+'''
 def get_mers(short_pep, size):
     results = []
     for i in range(size):
