@@ -165,6 +165,7 @@ def run(sizes):
                     print("Appended new mutpos", mutpos)
 
             mass_spec_suffix = []
+            written_25aa_file_once = False
             # only slide window over an ALTpeptide if it had differences with WTpeptide
             for e in mutpos:
                 if isinstance(e, tuple):
@@ -183,6 +184,9 @@ def run(sizes):
                     blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                     blast_peps.append(mer)
 
+                if written_25aa_file_once and is_frameshift:
+                    continue
+
                 if not reactivity_25aa_written:
                     alt_pep_25aa, alt_pep_25aa_start = take_sub_peptide(ALTpeptide, i[0], 25, is_frameshift)
                     # NOTE: 'take_sub_peptide' can be made to return 'wt_pep_25aa' directly
@@ -192,6 +196,7 @@ def run(sizes):
                     reactivity_25aa_file.write(varID + "\t" + wt_pep_25aa \
                                                      + "\t" + alt_pep_25aa \
                                                      + "\t" + str(i) + " " + str(is_frameshift) + "\n")
+                    written_25aa_file_once = True
 
             if not mass_spec_written:
                 mass_spec_file.write(varID + "_M" + ",".join(mass_spec_suffix) + "\t" + ALTpeptide + "\n")
