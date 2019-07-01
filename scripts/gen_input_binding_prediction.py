@@ -91,14 +91,25 @@ def take_sub_peptide(ALTseq, pos, size, is_frameshift):
             if is_frameshift:
                 return (ALTseq, 0)
             return (ALTseq[: size], 0)
-        elif alt_len - pos - 1 <= half_size:
+        elif alt_len - pos - 1 < half_size:
             print("cut on right")
+            # when size is even and pos is in the right boundary of getting
+            # cut, it still gets to this condition even though the size is
+            # just right to accommodate an even sized sequence, i.e. it's
+            # technically a "center" case. Can be solved with even/odd check
+            # but this is unnecessary unless there is a need to know, e.g., if
+            # the mutation is not centered in the return value of this function.
+            # Note that an even sized sequence will never actually be
+            # centered around the mutation as there is center.
             return (ALTseq[alt_len - size:], alt_len - size)
         else:
             print("centered")
             if is_frameshift:
                 return (ALTseq[pos - half_size:], pos - half_size)
+            if size % 2 == 0:
+                return (ALTseq[pos - half_size:pos + half_size], pos - half_size)
             return (ALTseq[pos - half_size:pos + half_size + 1], pos - half_size)
+
 
 ### MAIN ###
 def run(sizes):
