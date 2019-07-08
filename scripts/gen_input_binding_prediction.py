@@ -44,7 +44,7 @@ def get_mers(short_pep, size):
     for i in range(size):
         slide_peptide = short_pep[i:i + size]
         if len(slide_peptide) < size:
-            # depends on python len for arrays that are indexed ouside of bounds
+            # depends on python len for arrays that are indexed outside of bounds
             # to still only output the length of the content
             break
         results.append(slide_peptide)
@@ -136,6 +136,10 @@ def run(sizes):
         blast_peps_file = open(blast_peps_file_name, "w+")
         blast_peps = []
 
+        # file useful for debug
+        wt_mers_file_name = sample_name + "_wt_" + str(size) + "mers" + "_" + database + ".fsa"
+        wt_mers_file = open(wt_mers_file_name, "w+")
+
         # NOTE: "If you just want to read or write one file see open()"
         for line in fileinput.input(input_file):
             words = line.split()
@@ -145,7 +149,7 @@ def run(sizes):
             WTpeptide  = words[1]
             ALTpeptide = words[2]
             # Global alignment with gap penalty of -0.5 (and -0.1 for extending it)
-            # The 'x' default means the mismastch score is 0 and match is 1
+            # The 'x' default means the mismatch score is 0 and match is 1
             alignments = pairwise2.align.globalxc(WTpeptide, ALTpeptide, gap_function, gap_function, penalize_end_gaps=(False, True))
             print("---", varID)
             for ali in alignments:
@@ -186,14 +190,21 @@ def run(sizes):
                 else:
                     raise Exception("mutpos can only be of type int or tuple: {}".format(i))
                 print("inside for loop", i, mutpos)
-                short_pep = get_short_peptide(ALTpeptide, i[0], size)
+                # short_pep = get_short_peptide(ALTpeptide, i[0], size)
+                short_pep, alt_pep_start = take_sub_peptide(ALTpeptide, i[0], size * 2 - 1, False)
+                wt_short_pep = WTpeptide[alt_pep_start - ALT_offset + WT_offset:\
+                                         alt_pep_start - ALT_offset + WT_offset + size * 2 - 1]
                 mers = get_mers(short_pep, size)
+                wt_mers = get_mers(wt_short_pep, size)
                 # print ("%s\t%s\t%s\t%s\t%s" % (varID, WTpeptide, ALTpeptide, mutpos, mers))
                 # NOTE: allows repeated peptides, thus later blasted more than once
                 mass_spec_suffix.append(str(i[0] + 1)) # mass spec starts counting at 1
                 for mer in mers:
                     blast_peps_file.write(">" + varID + "\n" + mer + "\n")
                     blast_peps.append(mer)
+
+                for wt_mer in wt_mers:
+                    wt_mers_file.write(">" + varID + "\n" + wt_mer + "\n")
 
                 if written_25aa_file_once and is_frameshift:
                     continue
@@ -217,6 +228,8 @@ def run(sizes):
         reactivity_25aa_file.close()
         mass_spec_written = True
         reactivity_25aa_written = True
+
+        wt_mers_file.close()
 
         ### BLAST ###
         if database == "RS":
@@ -264,7 +277,7 @@ def run(sizes):
                     print(hsp.match)
                     print(hsp.sbjct)
                     print("Identities: ", hsp.identities)
-                    print("Alignment Lenght: ", hsp.align_length)
+                    print("Alignment Length: ", hsp.align_length)
                     print("Size: ", size)
                     # Disregard perfect hits. `align_length` is also checked because of
                     # possible gaps in the alignment.
@@ -286,7 +299,8 @@ def run(sizes):
         perfect_hits_file.close()
 
         output_file_name = sample_name + "_peptides_" + str(size) + "mers" + "_" + database + ".fsa"
-        # Note that the same peptide generated from two different variants will be repeated
+        # NOTE: the same peptide generated from, e.g., two different variants or
+        # from a repetitive sequence will be repeated in the output file
         with open(output_file_name, "w+") as output_file:
             for pep, varIDs in neoantigen_candidates.items():
                 for _id in varIDs:
