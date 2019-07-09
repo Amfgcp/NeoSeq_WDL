@@ -35,15 +35,17 @@ import seq_helpers as helper
 """
 Takes the input file with the WT and MUT peptide sequences, finds the mutation
 positions, breaks the sequences into smaller ones according to 'size' and
-outputs them: WT as an array, MUT as file name (useful for blast) to the file
-containing these smaller peptides.
+outputs them: WT as a dictionary indexed by a generated id, 'fasta_id', and
+MUT also as the latter but additionally as a file name (useful for blast) to a
+file containing these smaller peptides as well.
 """
 def compute_short_peptides_from_file(pep_file, size):
-    logging.debug("Analyzing: %s", pep_file)
+    logging.info("Analyzing: %s", pep_file)
     MUT_peps_to_blast_file_name = \
          SAMPLE + "_peptides_to_blast_" + str(size) + "mers" + "_" + DB + ".fsa"
     MUT_peps_to_blast_file = open(MUT_peps_to_blast_file_name, "w+")
     WT_peps = dict()
+    MUT_peps = dict()
     line_num = 1
     data_25aa = []
     data_mass_spec = []
@@ -81,6 +83,7 @@ def compute_short_peptides_from_file(pep_file, size):
                 fasta_id = var_id + "-L" + str(line_num) + "-WT" +  str(e[1]) \
                                   + "-MUT" +  str(e[0]) + "-M" + str(mer_num)
                 WT_peps[fasta_id] = mer[0]
+                MUT_peps[fasta_id] = mer[1]
                 MUT_peps_to_blast_file.write(">" + fasta_id + "\n" + mer[1] + "\n")
                 mer_num += 1
                 debug_count += 1
@@ -104,9 +107,8 @@ def compute_short_peptides_from_file(pep_file, size):
     if not WRITTEN_MASS_SPEC:
         write_mass_spec_file(data_mass_spec)
 
-    logging.debug(WT_peps)
-    logging.debug(len(WT_peps) == debug_count)
-    return (WT_peps, MUT_peps_to_blast_file_name)
+    logging.info("Short peptides calculated from: %s", pep_file)
+    return (WT_peps, MUT_peps, MUT_peps_to_blast_file_name)
 
 """
 Returns scores for no gap, gap open and gap extension used in aligning 2
@@ -202,8 +204,67 @@ def find_mutation_positions(var_id, alignments, WT_pep, MUT_pep, is_frameshift):
 
 """
 """
-def blast_peptides():
-    pass
+def blast_peptides(peps_file_name, size):
+    logging.info("Blasting peptides from file: %s", peps_file_name)
+    # NOTE: turn db_path user input
+    if DB == "RS":
+        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
+    elif DB == "SP":
+        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/swissprot_taxid_9606/swissprot_taxid_9606"
+    else:
+        raise Exception("Could not use database: {}".format(DB))
+
+    xml_file_name = SAMPLE + "_blast_output_" + str(size) + "mers_" + DB + ".xml"
+    blastp_cline = NcbiblastpCommandline( \
+                    query = peps_file_name, \
+                    task = "blastp-short", \
+                    db = db_path, \
+                    outfmt = 5, \
+                    out = xml_file_name, \
+                    remote = False)
+
+    logging.debug("Executing: %s", blastp_cline)
+    stdout, stderr = blastp_cline()
+    logging.info("Finished blasting file: %s", peps_file_name)
+    logging.info("stdout: %s", stdout)
+    logging.info("stderr: %s", stderr)
+
+    return xml_file_name
+
+"""
+# Disregard perfect hits. `align_length` is also checked because of
+# possible gaps in the alignment.
+"""
+def filter_db_perfect_matches(MUT_peps, blast_xml_out_file_name, size):
+    results_handle = open(blast_xml_out_file_name)
+    blast_records = NCBIXML.parse(results_handle)
+    neoantigen_candidates = dict()
+
+    for blast_record in blast_records:
+            logging.debug("////// Blasting peptide with id: %s //////", blast_record.query)
+            logging.debug("////// Peptide: %s", MUT_peps[blast_record.query])
+            candidate = True
+            for alignment in blast_record.alignments:
+                logging.debug("*** Alignment ***")
+                logging.debug("Aligned (in db) to: %s", alignment.title)
+                for hsp in alignment.hsps:
+                    logging.debug(hsp.query)
+                    logging.debug(hsp.match)
+                    logging.debug(hsp.sbjct)
+                    logging.debug("Identities: %s", hsp.identities)
+                    logging.debug("Alignment Length: %s", hsp.align_length)
+                    logging.debug("Size: %i", size)
+                    if (size == hsp.identities == hsp.align_length):
+                        logging.debug("Found perfect match: " + MUT_peps[blast_record.query])
+                        candidate = False
+                        break
+                if not candidate:
+                    break
+            if candidate:
+                neoantigen_candidates[blast_record.query] = MUT_peps[blast_record.query]
+
+    results_handle.close()
+    return neoantigen_candidates
 
 """
 """
@@ -226,8 +287,11 @@ def main():
     SAMPLE = os.path.splitext(os.path.basename(input_file))[0] # NOTE: needed?
     DB = arguments["-d"]
     for size in sizes:
-        compute_short_peptides_from_file(input_file, size)
-        blast_peptides()
+        WT_peps, MUT_peps, MUT_peps_file_name = \
+            compute_short_peptides_from_file(input_file, size)
+        blast_out_xml_file_name = blast_peptides(MUT_peps_file_name, size)
+        neoantigen_candidates = \
+            filter_db_perfect_matches(MUT_peps, blast_out_xml_file_name, size)
         predict_binding()
 
 if __name__ == '__main__':
