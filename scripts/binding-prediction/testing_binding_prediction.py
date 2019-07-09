@@ -28,5 +28,40 @@ def run_netMHCpan():
         print("Binder: %s" % (binding_prediction,))
         # if binding_prediction.affinity < 10000:
 
+def run_single_netMHCpan():
+    predictor = NetMHCpan(alleles=["A*02:01"])
+
+    wt_protein_sequence = {
+      "chr3_52533601_ACGCCGGGGCAGTGGG/A-L6-WT25-MUT25-M1": "NLYIQSSG",
+    }
+    binding_predictions = predictor.predict_subsequences(wt_protein_sequence, peptide_lengths=[8])
+    for binding_prediction in binding_predictions:
+        print("Binder: %s" % (binding_prediction,))
+
+
+    mut_protein_sequence = {
+        "chr3_52533601_ACGCCGGGGCAGTGGG/A-L6-WT25-MUT25-M1": "NLYIRSSG",
+    }
+    binding_predictions = predictor.predict_subsequences(mut_protein_sequence, peptide_lengths=[8])
+    for binding_prediction in binding_predictions:
+        print("Binder: %s" % binding_prediction)
+        print("Binder allele: %s" % binding_prediction.allele)
+
+def run_wt_pep_single_netMHCpan():
+    size = 8
+    hlas = ["A*02:01"]
+    MUT_peps = { "chr3_52533601_ACGCCGGGGCAGTGGG/A-L6-WT25-MUT25-M1": "NLYIRSSG", }
+    for allele in hlas:
+        predictor = NetMHCpan(alleles = allele)
+
+        for _id, pep in MUT_peps.items():
+            mut_binding_prediction = \
+              predictor.predict_subsequences({_id : pep}, peptide_lengths = [size])
+            for binding_prediction in mut_binding_prediction:
+                print(binding_prediction.affinity)
+
+
 if __name__ == '__main__':
-    run_netMHCpan()
+    # run_netMHCpan()
+    # run_single_netMHCpan()
+    run_wt_pep_single_netMHCpan()
