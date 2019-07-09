@@ -3,11 +3,12 @@ Helper functions to deal with string sequences.
 Developed to work with amino acid sequences.
 """
 
+from math import floor
 import logging
 
 """
 Returns array of some peptides of provided 'size' created using a sliding window.
-The last index where a sliding windows starts is `size` - 1.
+The last index where a sliding windows starts is 'size' - 1.
 Note that for a given input 'short_pep' different sliding windows may result in
 the same short peptide sequence (e.g, in repetitive sequences).
 """
@@ -23,25 +24,23 @@ def calc_mers(short_pep, size):
     return results
 
 """
-Assumes varID format of: chrX_Y_W/Z. E.g., chr3_112563516_AGTATTCTGCCAAT/A
+Assumes 'var_id' format of: chrX_Y_W/Z. E.g., chr3_112563516_AGTATTCTGCCAAT/A
 (frameshift variant) located in chromosome 3 position 112563516, where
 in the reference there was a 'AGTATTCTGCCAAT' and in the tumor an 'A'.
 """
-def check_if_frameshift(varID):
-    split_varID = varID.split("/")
-    ref = split_varID[0].split("_")[-1]
-    alt = split_varID[-1]
-    indel_len = abs(len(ref) - len(alt))
+def check_if_frameshift(var_id):
+    split_var_id = var_id.split("/")
+    ref = split_var_id[0].split("_")[-1]
+    mut = split_var_id[-1]
+    indel_len = abs(len(ref) - len(mut))
     if indel_len % 3 != 0:
-        logging.debug('Found frameshift var %s', varID)
+        logging.debug('Found frameshift var %s', var_id)
         return True
     return False
 
 """
 Returns a tuple with the subsequence of specified 'size' centered (when possible)
-around the mutation and its starting index on the input alt sequence, 'mut_seq'.
-This index is useful for obtaining the Wild Type subsequence aligned at the start
-of the alt subsequence.
+around the mutation and wild type sequences, 'mut_pep' and 'wt_pep', respectively.
 
 NOTE: when 'size' is even and pos is in the right boundary of getting cut
 ("elif mut_len - pos - 1 < half_size" condition), it still gets to this
@@ -52,37 +51,44 @@ know, e.g., if the mutation is not centered in the return value of this function
 Note that an even sized sequence will never actually be centered around the
 mutation as there is center.
 """
-def take_sub_peptide(mut_seq, pos, size, is_frameshift):
-    mut_len = len(mut_seq)
+def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift, mut_offset, wt_offset):
+    mut_len = len(mut_pep)
     if pos >= mut_len or pos < 0:
         incorrect_mut_pos = ("Mutation position is not valid, value is "
-                             "negative or bigger than ALT sequence length. "
-                             "The value of pos was: {} and length: {}").format(pos, mut_len - 1)
+            "negative or bigger than MUT sequence length. The value of pos "
+            "was: {} and length: {}").format(pos, mut_len - 1)
         raise Exception(incorrect_mut_pos)
     if mut_len <= size:
-        logging.debug("Sequence length too small (%i) for provided size (%s), returning entire sequence", mut_len, size)
-        return (mut_seq, 0)
+        logging.debug("Sequence length too small (%i) for provided size (%s), \
+                       returning entire sequence", mut_len, size)
+        return (mut_pep, 0)
     else:
         half_size = floor(size/2)
         if pos <= half_size:
             logging.debug("Sequence \"cut\" on left")
             if is_frameshift:
-                return (mut_seq, 0)
-            return (mut_seq[: size], 0)
+                return (mut_pep, 0)
+            return (mut_pep[: size], 0)
         elif mut_len - pos - 1 < half_size:
             logging.debug("Sequence \"cut\" on right")
-            return (mut_seq[mut_len - size:], mut_len - size)
+            mut_pep_start = mut_len - size
+            wt_sub_pep = wt_pep[mut_pep_start - mut_offset + wt_offset: \
+                          mut_pep_start - mut_offset + wt_offset + size]
+            return (mut_pep[mut_len - size:], wt_sub_pep)
         else:
             logging.debug("Mutation in range")
+            mut_pep_start = pos - half_size
+            wt_sub_pep = wt_pep[mut_pep_start - mut_offset + wt_offset: \
+                          mut_pep_start - mut_offset + wt_offset + size]
             if is_frameshift:
-                return (mut_seq[pos - half_size:], pos - half_size)
+                return (mut_pep[pos - half_size:], wt_sub_pep)
             if size % 2 == 0:
-                return (mut_seq[pos - half_size:pos + half_size], pos - half_size)
-            return (mut_seq[pos - half_size:pos + half_size + 1], pos - half_size)
+                return (mut_pep[pos - half_size:pos + half_size], wt_sub_pep)
+            return (mut_pep[pos - half_size:pos + half_size + 1], wt_sub_pep)
 
 """
-Returns a sub-peptide of 'mut_seq' centered around 'mut_pos' and of size
+Returns a sub-peptide of 'mut_pep' centered around 'mut_pos' and of size
 2 * 'size' - 1.
 """
-def calc_short_peptide(mut_seq, mut_pos, size):
-    return mut_seq[max(0, mut_pos - size + 1):mut_pos + size]
+def calc_short_peptide(mut_pep, mut_pos, size):
+    return mut_pep[max(0, mut_pos - size + 1):mut_pos + size]
