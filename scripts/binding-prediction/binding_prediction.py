@@ -203,10 +203,12 @@ def find_mutation_positions(var_id, alignments, WT_pep, MUT_pep, is_frameshift):
 
 
 """
+Blast peptides contained in the file with name 'peps_file_name'.
+Returns file name of blast output (XML).
 """
 def blast_peptides(peps_file_name, size):
     logging.info("Blasting peptides from file: %s", peps_file_name)
-    # NOTE: turn db_path user input
+    # NOTE: turn 'db_path' to user input
     if DB == "RS":
         db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
     elif DB == "SP":
@@ -232,8 +234,8 @@ def blast_peptides(peps_file_name, size):
     return xml_file_name
 
 """
-# Disregard perfect hits. `align_length` is also checked because of
-# possible gaps in the alignment.
+Disregard peptides found to match perfectly in terms of alignment and 'size'.
+Returns dictionary of non-perfect matching peptides.
 """
 def filter_db_perfect_matches(MUT_peps, blast_xml_out_file_name, size):
     results_handle = open(blast_xml_out_file_name)
