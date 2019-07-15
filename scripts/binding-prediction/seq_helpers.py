@@ -61,14 +61,14 @@ def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift, mut_offset, wt_o
     if mut_len <= size:
         logging.debug("Sequence length too small (%i) for provided size (%s), \
                        returning entire sequence", mut_len, size)
-        return (mut_pep, 0)
+        return (mut_pep, wt_pep[: size])
     else:
         half_size = floor(size/2)
         if pos <= half_size:
             logging.debug("Sequence \"cut\" on left")
             if is_frameshift:
-                return (mut_pep, 0)
-            return (mut_pep[: size], 0)
+                return (mut_pep, wt_pep[: size])
+            return (mut_pep[: size], wt_pep[: size])
         elif mut_len - pos - 1 < half_size:
             logging.debug("Sequence \"cut\" on right")
             mut_pep_start = mut_len - size

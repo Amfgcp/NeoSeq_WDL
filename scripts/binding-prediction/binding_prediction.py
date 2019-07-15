@@ -60,6 +60,7 @@ def compute_short_peptides_from_file(pep_file, size):
         var_id  = words[0]
         WT_pep  = words[1]
         MUT_pep = words[2]
+        logging.debug("Variant: %s", var_id)
         # using default scores for match and mismatch, 1 and 0, respectively
         alignments = pairwise2.align.globalxc(WT_pep, MUT_pep, \
            gap_function, gap_function, penalize_end_gaps=(False, True))
@@ -77,7 +78,6 @@ def compute_short_peptides_from_file(pep_file, size):
                        WT_pep, e[0], size * 2 - 1, False, MUT_offset, WT_offset)
             WT_mers = helper.calc_mers(WT_short_pep, size)
             MUT_mers = helper.calc_mers(MUT_short_pep, size)
-            logging.debug(len(WT_mers) == len(MUT_mers))
             # logging.debug("%s\t%s\t%s\t%s\t%s" % (var_id, WT_pep, MUT_pep, MUT_WT_pos, MUT_mers))
             mass_spec_suffix.append(str(e[0] + 1)) # mass spec starts count at 1
             mer_num = 0
@@ -183,8 +183,8 @@ def find_mutation_positions(var_id, alignments, WT_pep, MUT_pep, is_frameshift):
     found_first_mut = False
     for e, c in enumerate(zip(alignments[0][0][0:len(MUT_pep)], alignments[0][1])):
         if found_first_mut and is_frameshift:
-            logging.debug("Frameshift case so append remaining positions in \
-                     MUT: %i-%i", e + MUT_offset, len(MUT_pep) + MUT_offset - 1)
+            logging.debug("Is frameshift so append remaining positions in " + \
+                    "MUT: %i-%i", e + MUT_offset, len(MUT_pep) + MUT_offset - 1)
             for pos in range(e + MUT_offset, len(MUT_pep) + MUT_offset):
                 MUT_WT_pos.append((pos, None))
             break
@@ -274,15 +274,19 @@ def filter_db_perfect_matches(MUT_peps, blast_xml_out_file_name, size):
 
 """
 Predicts peptide binding to MHC using netMHC and netMHCpan.
-Records data to write to binding prediction file.
+Records data to write to a binding prediction file.
 """
-def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software):
-    logging.info("Starting binding prediction for alleles: %s.", hla_alleles)
+def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, extra_flag=""):
+    logging.info("Starting binding prediction for %s, size: %i.", \
+                             bind_pred_software + extra_flag, size)
+    logging.info("Alleles: %s.", hla_alleles)
     hlas = hla_alleles.split(",")
     data_netMHC = []
     for allele in hlas:
-        if bind_pred_software.lower() == "netmhcpan":
+        if bind_pred_software.lower() == "netmhcpan" and extra_flag == "":
             predictor = NetMHCpan(alleles = allele)
+        elif bind_pred_software.lower() == "netmhcpan" and extra_flag.lower() == "-ba":
+            predictor = NetMHCpan(alleles = allele, extra_flags=[extra_flag])
         elif bind_pred_software.lower() == "netmhc":
             try:
                 predictor = NetMHC(alleles = allele)
@@ -301,48 +305,63 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software):
                 wt_binding_prediction = \
                    predictor.predict_subsequences({var_id : WT_peps[var_id]}, peptide_lengths = [size])
                 for wt_bp, mut_bp in zip(wt_binding_prediction, mut_binding_prediction):
-                        dai = wt_bp.affinity / mut_bp.affinity
-                        logging.debug("%s\t%f", var_id, dai)
-                        data_netMHC.append((var_id, mut_bp.percentile_rank, \
+                        if extra_flag == "-BA" or bind_pred_software.lower() == "netmhc":
+                            dai = wt_bp.affinity - mut_bp.affinity
+                            data_netMHC.append((var_id, mut_bp.percentile_rank, \
                                          WT_peps[var_id], MUT_pep, \
                                          wt_bp.affinity, mut_bp.affinity, dai, \
-                                         allele, size))
+                                         allele, size, bind_pred_software + extra_flag))
+                        else:
+                            data_netMHC.append((var_id, mut_bp.percentile_rank, \
+                                         WT_peps[var_id], MUT_pep, \
+                                         "N/A", "N/A", "N/A", \
+                                         allele, size, bind_pred_software + extra_flag))
+
             else:
                 for mut_bp in mut_binding_prediction:
-                    logging.debug("%s\t%f", var_id, mut_bp.affinity)
-                    data_netMHC.append((var_id, mut_bp.percentile_rank, \
+                    if extra_flag == "-BA" or bind_pred_software.lower() == "netmhc":
+                        data_netMHC.append((var_id, mut_bp.percentile_rank, \
                                          "N/A", MUT_pep, \
                                          "N/A", mut_bp.affinity, "N/A", \
-                                         allele, size))
+                                         allele, size, bind_pred_software + extra_flag))
+                    else:
+                        data_netMHC.append((var_id, mut_bp.percentile_rank, \
+                                         "N/A", MUT_pep, \
+                                         "N/A", "N/A", "N/A", \
+                                         allele, size, bind_pred_software + extra_flag))
 
-    if bind_pred_software.lower() == "netmhcpan":
-        write_netMHC_type_file(data_netMHC, size, bind_pred_software)
-    if bind_pred_software.lower() == "netmhc":
-        write_netMHC_type_file(data_netMHC, size, bind_pred_software)
+    write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag)
+    logging.info("Finished binding prediction for %s, size: %i.", \
+                             bind_pred_software + extra_flag, size)
 
 """
 Writes a file to the current folder with netMHCpan obtained scores in binding
 prediction. The input consists of an array of tuples with the data needed.
+Header:
+"var_id %Rank   WT_peptide  MUT_peptide WT_Affinity MUT_Affinity    dai HLA_allele size"
 Example of lines in file for non and frameshift cases, respectively:
 "chr22_50508443_G/A-L4-WT43-MUT40-M7    79.4913    IEAALLIQ    LEAALLIQ    42528.3    42127.6    1.0095115791072837    HLA-A02:01    8"
 "chr3_112563516_AGTATTCTGCCAAT/A-L5-WT25-MUT25-M0    79.2794    N/A    SRILLVKK    N/A     42075.2    N/A    HLA-A02:01    8"
+Example of line without extra_flag="-BA":
+chr8_127738959_G/A-L1-WT25-MUT25-M0 77.0    STESSPQG    STESSPQS    N/A N/A N/A HLA-A02:01  8
 """
-def write_netMHC_type_file(data_netMHC, size, bind_pred_software):
-    logging.info("Writing %s file", bind_pred_software)
+def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
+    logging.info("Writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
     global STARTED_WRITING_BIND_PRED
-    file_name = SAMPLE + "_" + bind_pred_software + "_" + DB + ".txt"
-    
+    file_name = SAMPLE + "_binding_prediction_" + DB + ".txt"
+    logging.info("file name: %s", file_name)
+
     if not STARTED_WRITING_BIND_PRED:
         try:
             logging.info("Removing pre-existent binding prediction file.")
-            os.remove(file_name)
+            os.remove(file_name) # do this because we open the file with a+
         except FileNotFoundError:
             logging.debug("No previous binding prediction file to remove.")
 
     file = open(file_name, "a+")
     if not STARTED_WRITING_BIND_PRED:
-        file.write("var_id\t%Rank\tWT_peptide\tMUT_peptide\tWT_Affinity\t \
-                    MUT_Affinity\tdai\tHLA_allele\tsize\n")
+        file.write("Var_id\t%Rank\tWT_peptide\tMUT_peptide\tWT_Affinity\t" +
+                   "MUT_Affinity\tDAI\tHLA_allele\tSize\tProgram\n")
     STARTED_WRITING_BIND_PRED = True
 
     for lines_content in data_netMHC:
@@ -351,7 +370,7 @@ def write_netMHC_type_file(data_netMHC, size, bind_pred_software):
         file.write("\n")
 
     file.close()
-    logging.info("Finished writing NetMHCpan file")
+    logging.info("Finished writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
 
 # Global Vars
 SAMPLE = "unset-sample"
@@ -360,14 +379,14 @@ WRITTEN_25AA_REACTIVITY = False
 WRITTEN_MASS_SPEC = False
 STARTED_WRITING_BIND_PRED = False
 """
-Main logic is to for each size specified by the user:
+Main logic is for each size specified by the user:
   1. Break peptides in input file into shorter ones
   2. "blastp" those peptides
   3. Filter the ones whose sequence is 100% found in "blastp"
   4. Perform binding prediction using netMHCpan and netMHC
 """
 def main():
-    arguments = docopt(__doc__, version='Binding Prediction 0.1')
+    arguments = docopt(__doc__, version='Binding Prediction 0.2')
     global SAMPLE, DB
     logging.basicConfig(filename=arguments["-l"], \
                         filemode='w', \
@@ -384,6 +403,7 @@ def main():
         blast_out_xml_file_name = blast_peptides(MUT_peps_file_name, size)
         neoantigen_candidates = \
             filter_db_perfect_matches(MUT_peps, blast_out_xml_file_name, size)
+        predict_binding(hla_alleles, WT_peps, neoantigen_candidates, size, "netMHCpan", "-BA")
         predict_binding(hla_alleles, WT_peps, neoantigen_candidates, size, "netMHCpan")
         predict_binding(hla_alleles, WT_peps, neoantigen_candidates, size, "netMHC")
 
