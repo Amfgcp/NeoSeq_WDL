@@ -51,7 +51,6 @@ def compute_short_peptides_from_file(pep_file, size):
     line_num = 1
     data_25aa = []
     data_mass_spec = []
-    debug_count = 0
     for line in fileinput.input(pep_file):
         words = line.split()
         if not words[0].startswith("chr"):
@@ -60,7 +59,7 @@ def compute_short_peptides_from_file(pep_file, size):
         var_id  = words[0]
         WT_pep  = words[1]
         MUT_pep = words[2]
-        logging.debug("Variant: %s", var_id)
+        logging.debug("\nVariant: %s", var_id)
         # using default scores for match and mismatch, 1 and 0, respectively
         alignments = pairwise2.align.globalxc(WT_pep, MUT_pep, \
            gap_function, gap_function, penalize_end_gaps=(False, True))
@@ -84,11 +83,13 @@ def compute_short_peptides_from_file(pep_file, size):
             for mer in zip(WT_mers, MUT_mers):
                 fasta_id = var_id + "-L" + str(line_num) + "-WT" +  str(e[1]) \
                                   + "-MUT" +  str(e[0]) + "-M" + str(mer_num)
-                WT_peps[fasta_id] = mer[0]
-                MUT_peps[fasta_id] = mer[1]
-                MUT_peps_to_blast_file.write(">" + fasta_id + "\n" + mer[1] + "\n")
+                if mer[0] != mer[1]: # avoids unnecessary blasting and prediction
+                    WT_peps[fasta_id] = mer[0]
+                    MUT_peps[fasta_id] = mer[1]
+                    MUT_peps_to_blast_file.write(">" + fasta_id + "\n" + mer[1] + "\n")
+                else:
+                    logging.debug("Ignoring WT mer: %s == MUT mer: %s\n", mer[0], mer[1])
                 mer_num += 1
-                debug_count += 1
 
             if recorded_25aa_peps_once and is_frameshift:
                 continue # such that these kind of repeats aren't recorded
