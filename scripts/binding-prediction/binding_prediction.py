@@ -306,30 +306,40 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, ex
                 wt_binding_prediction = \
                    predictor.predict_subsequences({var_id : WT_peps[var_id]}, peptide_lengths = [size])
                 for wt_bp, mut_bp in zip(wt_binding_prediction, mut_binding_prediction):
+                        bind_level = "N/A"
+                        if mut_bp.percentile_rank <= 2.0:
+                            bind_level = "WB"
+                        if mut_bp.percentile_rank <= 0.5:
+                            bind_level = "SB"
                         if extra_flag == "-BA" or bind_pred_software.lower() == "netmhc":
                             dai = wt_bp.affinity - mut_bp.affinity
                             data_netMHC.append((var_id, mut_bp.percentile_rank, \
-                                         WT_peps[var_id], MUT_pep, \
-                                         wt_bp.affinity, mut_bp.affinity, dai, \
-                                         allele, size, bind_pred_software + extra_flag))
+                                    bind_level, WT_peps[var_id], MUT_pep, \
+                                    wt_bp.affinity, mut_bp.affinity, dai, \
+                                    allele, size, bind_pred_software + extra_flag))
                         else:
                             data_netMHC.append((var_id, mut_bp.percentile_rank, \
-                                         WT_peps[var_id], MUT_pep, \
-                                         "N/A", "N/A", "N/A", \
-                                         allele, size, bind_pred_software + extra_flag))
+                                    bind_level, WT_peps[var_id], MUT_pep, \
+                                    "N/A", "N/A", "N/A", \
+                                    allele, size, bind_pred_software + extra_flag))
 
             else:
                 for mut_bp in mut_binding_prediction:
+                    bind_level = "N/A"
+                    if mut_bp.percentile_rank <= 2.0:
+                        bind_level = "WB"
+                    if mut_bp.percentile_rank <= 0.5:
+                        bind_level = "SB"
                     if extra_flag == "-BA" or bind_pred_software.lower() == "netmhc":
                         data_netMHC.append((var_id, mut_bp.percentile_rank, \
-                                         "N/A", MUT_pep, \
-                                         "N/A", mut_bp.affinity, "N/A", \
-                                         allele, size, bind_pred_software + extra_flag))
+                                    bind_level, "N/A", MUT_pep, \
+                                    "N/A", mut_bp.affinity, "N/A", \
+                                    allele, size, bind_pred_software + extra_flag))
                     else:
                         data_netMHC.append((var_id, mut_bp.percentile_rank, \
-                                         "N/A", MUT_pep, \
-                                         "N/A", "N/A", "N/A", \
-                                         allele, size, bind_pred_software + extra_flag))
+                                    bind_level, "N/A", MUT_pep, \
+                                    "N/A", "N/A", "N/A", \
+                                    allele, size, bind_pred_software + extra_flag))
 
     write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag)
     logging.info("Finished binding prediction for %s, size: %i.", \
