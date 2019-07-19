@@ -2,7 +2,7 @@
 Predict peptide binding affinity to MHC
 
 Usage:
-  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -l run_1.log
+  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir
 
 Options:
   -h --help           Show this screen.
@@ -13,7 +13,6 @@ Options:
   -d <path/to/db>     Path to database.
   -b <HLA(s)>         HLA alleles for the binding prediction step.
   -o <output_dir>     Output folder where files and sub-folders will be created.
-  -l <log_file_name>  Name to give to the log file.
 """
 
 import fileinput
@@ -21,6 +20,7 @@ import sys
 import re
 import os
 from math import floor
+from datetime import date
 import logging
 
 from docopt import docopt
@@ -405,24 +405,27 @@ Main logic is for each size specified by the user:
   4. Perform binding prediction using netMHCpan and netMHC
 """
 def main():
-    arguments = docopt(__doc__, version='Binding Prediction 0.2')
+    arguments = docopt(__doc__, version='Binding Prediction 0.3')
     global SAMPLE, DB, OUT_DIR
     OUT_DIR = arguments["-o"] + "/"
+    input_file_name = arguments["-f"]
+    SAMPLE = os.path.splitext(os.path.basename(input_file_name))[0]
     log_folder_name = OUT_DIR + "logs/"
     if not os.path.exists(log_folder_name):
         os.mkdir(log_folder_name)
-    logging.basicConfig(filename=log_folder_name + arguments["-l"], \
+    log_file_name = log_folder_name + "bind-pred_" + SAMPLE + "_" + \
+                    date.today().strftime("%d-%m-%Y") + ".log"
+    logging.basicConfig(filename=log_file_name, \
                         filemode='w', \
                         format="%(asctime)s %(levelname)s: %(message)s", \
                         level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
+    logging.info(" ".join(sys.argv))
     sizes = [int(e) for e in arguments["-s"].split(",")]
-    input_file = arguments["-f"]
-    SAMPLE = os.path.splitext(os.path.basename(input_file))[0] # NOTE: needed?
     DB = arguments["-d"]
     hla_alleles = arguments["-b"]
     for size in sizes:
         WT_peps, MUT_peps, MUT_peps_file_name = \
-            compute_short_peptides_from_file(input_file, size)
+            compute_short_peptides_from_file(input_file_name, size)
         blast_out_xml_file_name = blast_peptides(MUT_peps_file_name, size)
         neoantigen_candidates = \
             filter_db_perfect_matches(MUT_peps, blast_out_xml_file_name, size)
