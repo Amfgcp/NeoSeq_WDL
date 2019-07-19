@@ -2,7 +2,7 @@
 Predict peptide binding affinity to MHC
 
 Usage:
-  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -l run_1.log
+  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -l run_1.log
 
 Options:
   -h --help           Show this screen.
@@ -12,6 +12,7 @@ Options:
                       Mutant peptide has been curated for phased variants (using e.g. isovar).
   -d <path/to/db>     Path to database.
   -b <HLA(s)>         HLA alleles for the binding prediction step.
+  -o <output_dir>     Output folder where files and sub-folders will be created.
   -l <log_file_name>  Name to give to the log file.
 """
 
@@ -43,8 +44,11 @@ file containing these smaller peptides as well.
 """
 def compute_short_peptides_from_file(pep_file, size):
     logging.info("Analyzing: %s", pep_file)
-    MUT_peps_to_blast_file_name = \
-         SAMPLE + "_peptides_to_blast_" + str(size) + "mers_" + DB + ".fsa"
+    folder_name = OUT_DIR + "blast/"
+    if not os.path.exists(folder_name):
+        os.mkdir(folder_name)
+    MUT_peps_to_blast_file_name = folder_name + SAMPLE + "_peptides_to_blast_" \
+                                  + str(size) + "mers_" + DB + ".fsa"
     MUT_peps_to_blast_file = open(MUT_peps_to_blast_file_name, "w+")
     WT_peps = dict()
     MUT_peps = dict()
@@ -134,10 +138,10 @@ an array of tuples with the data needed. Example of line in file:
 def write_mass_spec_file(data_mass_spec):
     logging.info("Writing Mass Spec file")
     global WRITTEN_MASS_SPEC
-    folder_name = "51aa/"
+    folder_name = OUT_DIR + "51aa/"
     if not os.path.exists(folder_name):
         os.mkdir(folder_name)
-    file_name = folder_name + SAMPLE + "_2massSpec_" + DB + ".txt"
+    file_name = folder_name + SAMPLE + "_2massSpec_" + DB + ".fsa"
     file = open(file_name, "w+")
 
     for var_id, mass_spec_suffix, MUT_pep in data_mass_spec:
@@ -156,7 +160,7 @@ consists of an array of tuples with the data needed. Example of line in file:
 def write_25aa_reactivity_file(data_25aa):
     logging.info("Writing 25aa reactivity file")
     global WRITTEN_25AA_REACTIVITY
-    folder_name = "25aa/"
+    folder_name = OUT_DIR + "25aa/"
     if not os.path.exists(folder_name):
         os.mkdir(folder_name)
     file_name = folder_name + SAMPLE + "_25aa_" + DB + ".txt"
@@ -219,7 +223,7 @@ def blast_peptides(peps_file_name, size):
     else:
         raise Exception("Could not use database: {}".format(DB))
 
-    xml_file_name = SAMPLE + "_blast_output_" + str(size) + "mers_" + DB + ".xml"
+    xml_file_name = OUT_DIR + "blast/" + SAMPLE + "_blast_output_" + str(size) + "mers_" + DB + ".xml"
     blastp_cline = NcbiblastpCommandline( \
                     query = peps_file_name, \
                     task = "blastp-short", \
@@ -359,7 +363,7 @@ chr8_127738959_G/A-L1-WT25-MUT25-M0 77.0    STESSPQG    STESSPQS    N/A N/A N/A 
 def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
     logging.info("Writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
     global STARTED_WRITING_BIND_PRED
-    file_name = SAMPLE + "_binding_prediction_" + DB + ".txt"
+    file_name = OUT_DIR + SAMPLE + "_binding_prediction_" + DB + ".txt"
     logging.info("file name: %s", file_name)
 
     if not STARTED_WRITING_BIND_PRED:
@@ -389,6 +393,7 @@ DB = "unset-db"
 WRITTEN_25AA_REACTIVITY = False
 WRITTEN_MASS_SPEC = False
 STARTED_WRITING_BIND_PRED = False
+OUT_DIR = ""
 """
 Main logic is for each size specified by the user:
   1. Break peptides in input file into shorter ones
@@ -398,8 +403,12 @@ Main logic is for each size specified by the user:
 """
 def main():
     arguments = docopt(__doc__, version='Binding Prediction 0.2')
-    global SAMPLE, DB
-    logging.basicConfig(filename=arguments["-l"], \
+    global SAMPLE, DB, OUT_DIR
+    OUT_DIR = arguments["-o"] + "/"
+    log_folder_name = OUT_DIR + "logs/"
+    if not os.path.exists(log_folder_name):
+        os.mkdir(log_folder_name)
+    logging.basicConfig(filename=log_folder_name + arguments["-l"], \
                         filemode='w', \
                         format="%(asctime)s %(levelname)s: %(message)s", \
                         level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
