@@ -139,10 +139,10 @@ def write_mass_spec_file(data_mass_spec):
         os.mkdir(folder_name)
     file_name = folder_name + SAMPLE + "_2massSpec_" + DB + ".txt"
     file = open(file_name, "w+")
-    file.write("var_id\tMUT_peptide\n")
 
     for var_id, mass_spec_suffix, MUT_pep in data_mass_spec:
-        file.write(var_id + "_M" + ",".join(mass_spec_suffix) + "\t" + MUT_pep + "\n")
+        file.write(">" + var_id + "_M" + ",".join(mass_spec_suffix) + "\n" + \
+                    MUT_pep + "\n")
 
     WRITTEN_MASS_SPEC = True
     file.close()
