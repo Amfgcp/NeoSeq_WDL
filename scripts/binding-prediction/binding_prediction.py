@@ -2,7 +2,7 @@
 Predict peptide binding affinity to MHC
 
 Usage:
-  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir
+  binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -n Sample_X
 
 Options:
   -h --help           Show this screen.
@@ -13,6 +13,7 @@ Options:
   -d <path/to/db>     Path to database.
   -b <HLA(s)>         HLA alleles for the binding prediction step.
   -o <output_dir>     Output folder where files and sub-folders will be created.
+  -n <sample_name>    Sample name. Will be used in the file names.
 """
 
 import fileinput
@@ -408,8 +409,7 @@ def main():
     arguments = docopt(__doc__, version='Binding Prediction 0.3')
     global SAMPLE, DB, OUT_DIR
     OUT_DIR = arguments["-o"] + "/"
-    input_file_name = arguments["-f"]
-    SAMPLE = os.path.splitext(os.path.basename(input_file_name))[0]
+    SAMPLE = arguments["-n"]
     log_folder_name = OUT_DIR + "logs/"
     if not os.path.exists(log_folder_name):
         os.mkdir(log_folder_name)
@@ -420,6 +420,7 @@ def main():
                         format="%(asctime)s %(levelname)s: %(message)s", \
                         level=logging.DEBUG) # DEBUG, INFO, WARNING, ERROR, CRITICAL
     logging.info(" ".join(sys.argv))
+    input_file_name = arguments["-f"]
     sizes = [int(e) for e in arguments["-s"].split(",")]
     DB = arguments["-d"]
     hla_alleles = arguments["-b"]
