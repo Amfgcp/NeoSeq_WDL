@@ -363,7 +363,10 @@ chr8_127738959_G/A-L1-WT25-MUT25-M0 77.0    STESSPQG    STESSPQS    N/A N/A N/A 
 def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
     logging.info("Writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
     global STARTED_WRITING_BIND_PRED
-    file_name = OUT_DIR + SAMPLE + "_binding_prediction_" + DB + ".txt"
+    folder_name = OUT_DIR + "bind-pred/"
+    if not os.path.exists(folder_name):
+        os.mkdir(folder_name)
+    file_name = folder_name + SAMPLE + "_binding_prediction_" + DB + ".txt"
     logging.info("file name: %s", file_name)
 
     if not STARTED_WRITING_BIND_PRED:
@@ -375,7 +378,7 @@ def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
 
     file = open(file_name, "a+")
     if not STARTED_WRITING_BIND_PRED:
-        file.write("Var_id\t%Rank\tWT_peptide\tMUT_peptide\tWT_Affinity\t" +
+        file.write("Var_id\t%Rank\tBind_Level\tWT_peptide\tMUT_peptide\tWT_Affinity\t" +
                    "MUT_Affinity\tDAI\tHLA_allele\tSize\tProgram\n")
     STARTED_WRITING_BIND_PRED = True
 
