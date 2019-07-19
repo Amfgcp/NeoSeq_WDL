@@ -149,3 +149,16 @@ $(WORKDIR)/tmp/%_strelka.vcf:
 	@echo " --------- compress and index the file --------- "
 	bgzip -c $(WORKDIR)/strelka/$*_strelka.vcf > $(WORKDIR)/tmp/$*_strelka.vcf.gz
 	tabix -p vcf -f $(WORKDIR)/tmp/$*_strelka.vcf.gz
+
+
+#filter varDict to have less false positives @TONI, can you do this in PYTHON? No, is not a valid answer :-)
+#=============================================================
+varDict_filter: 
+# Note that we decided not to put a filter on var frequency but instead output it to the result file, so that the user can actually filter them at a later stage (&& (S$$NIC7T$$AF) >= 0.05)
+# ToDo: Keep only variants that have at least 1 forward ALT read and 1 reverse ALT read 
+	zcat /exports/path-demiranda/usr/amfgcp/aligning-somatic/results-NIC7-alt-pon/samples/NIC7T/somatic-variantcalling/vDict-gatk4.1.2.0-pon-with-gnomAD-extended-list/NIC7T-NIC7N.vcf.gz | \
+		awk -F"\t" '$$7~"PASS" || $$1~"^#CHROM" { if ($$1!~"^#") {$$3=$$1"_"$$2"_"$$4"/"$$5} ; print }' OFS="\t"	| \
+		~/tools/vawk/vawk --header '{ if (I$$STATUS == "StrongSomatic" || I$$STATUS == "LikelySomatic") print}' | \
+		~/tools/vawk/vawk '{ if ((S$$NIC7T$$DP) >= 8 && (S$$NIC7T$$VD) >= 4) print}' | \
+		cut -f3 | sort -k1,1 | \
+		join -v2 - <(cat /mnt/patharchief/ImmunoGenomics/ngsdata/VisualInspection/NIC7.txt |  awk '$$2~/T$$/ {print $$1}' | sort -k1,1) | less  
