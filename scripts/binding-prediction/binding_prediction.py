@@ -216,29 +216,19 @@ Returns file name of blast output (XML).
 """
 def blast_peptides(peps_file_name, size):
     logging.info("Blasting peptides from file: %s", peps_file_name)
-    # NOTE: turn 'db_path' to user input
-    if DB == "RS":
-        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/refseq_taxid_9606/GRCh38_latest_protein"
-    elif DB == "SP":
-        db_path = "/exports/path-demiranda/usr/amfgcp/databases/ncbi/v5/generated/swissprot_taxid_9606/swissprot_taxid_9606"
-    else:
-        raise Exception("Could not use database: {}".format(DB))
-
     xml_file_name = OUT_DIR + "blast/" + SAMPLE + "_blast_output_" + str(size) + "mers_" + DB + ".xml"
     blastp_cline = NcbiblastpCommandline( \
                     query = peps_file_name, \
                     task = "blastp-short", \
-                    db = db_path, \
+                    db = DB_PATH, \
                     outfmt = 5, \
                     out = xml_file_name, \
                     remote = False)
-
     logging.debug("Executing: %s", blastp_cline)
     stdout, stderr = blastp_cline()
     logging.info("Finished blasting file: %s", peps_file_name)
     logging.info("stdout: %s", stdout)
     logging.info("stderr: %s", stderr)
-
     return xml_file_name
 
 """
@@ -394,10 +384,11 @@ def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
 # Global Vars
 SAMPLE = "unset-sample"
 DB = "unset-db"
+DB_PATH = "unset-db_path"
 WRITTEN_25AA_REACTIVITY = False
 WRITTEN_MASS_SPEC = False
 STARTED_WRITING_BIND_PRED = False
-OUT_DIR = ""
+OUT_DIR = "unset-out_dir"
 """
 Main logic is for each size specified by the user:
   1. Break peptides in input file into shorter ones
@@ -407,7 +398,7 @@ Main logic is for each size specified by the user:
 """
 def main():
     arguments = docopt(__doc__, version='Binding Prediction 0.3')
-    global SAMPLE, DB, OUT_DIR
+    global SAMPLE, DB, DB_PATH, OUT_DIR
     OUT_DIR = arguments["-o"] + "/"
     SAMPLE = arguments["-n"]
     log_folder_name = OUT_DIR + "logs/"
@@ -422,7 +413,8 @@ def main():
     logging.info(" ".join(sys.argv))
     input_file_name = arguments["-f"]
     sizes = [int(e) for e in arguments["-s"].split(",")]
-    DB = arguments["-d"]
+    DB_PATH = arguments["-d"]
+    DB = os.path.basename(os.path.normpath(DB_PATH))
     hla_alleles = arguments["-b"]
     for size in sizes:
         WT_peps, MUT_peps, MUT_peps_file_name = \
