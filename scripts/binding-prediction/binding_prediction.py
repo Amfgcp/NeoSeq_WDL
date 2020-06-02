@@ -168,12 +168,14 @@ def write_25aa_reactivity_file(data_25aa):
     folder_name = OUT_DIR + "25aa/"
     if not os.path.exists(folder_name):
         os.mkdir(folder_name)
-    file_name = folder_name + SAMPLE + "_25aa_" + DB + ".txt"
+    file_name = folder_name + SAMPLE + "_25aa_" + DB + ".fsa"
     file = open(file_name, "w+")
-    file.write("var_id\tWT_peptide\tMUT_peptide\n")
 
+    linenr = 1
     for var_id, WT_pep_25aa, MUT_pep_25aa in data_25aa:
-        file.write(var_id + "\t" + WT_pep_25aa + "\t" + MUT_pep_25aa + "\n")
+        file.write(">" + var_id + "_LP" + str(linenr) + "\n" + \
+                    MUT_pep_25aa + "\n")
+        linenr = linenr + 1
 
     WRITTEN_25AA_REACTIVITY = True
     file.close()
