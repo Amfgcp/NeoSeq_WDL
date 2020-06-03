@@ -67,8 +67,8 @@ def compute_short_peptides_from_file(pep_file, size):
         # add variant id to log file
         logging.debug("\nVariant: %s", var_id)
         # to be able to use the length of MUT peptide outside the for loop
-        global len_MUT_pep
-        len_MUT_pep = len(MUT_pep)
+        global len_longest_pep
+        len_longest_pep = len(WT_pep) if len(WT_pep) > len(MUT_pep) else len(MUT_pep)
         # using default scores for match and mismatch, 1 and 0, respectively
         alignments = pairwise2.align.globalxc(WT_pep, MUT_pep, \
            gap_function, gap_function, penalize_end_gaps=(False, True))
@@ -132,8 +132,8 @@ def gap_function(x, y):
     if y == 0:  # no gap
         return 0
     elif y == 1:  # gap open penalty
-        return -0.6 + (x/len_MUT_pep) / 2
-    return -0.6 + (x/len_MUT_pep) / 2 - 0.1 # gap extension penalty
+        return -0.6 + (x/len_longest_pep) / 2
+    return -0.6 + (x/len_longest_pep) / 2 - 0.1 # gap extension penalty
 
 """
 Creates a folder where the file for mass spec is written. The input consists of
