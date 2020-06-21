@@ -28,7 +28,7 @@ NOTE: mhctools requires most of the binding predictors to be installed locally (
 ```
 test-output/
   ./25aa
-    1207.test_25aa_swissprot_taxid_9606.txt
+    1207.test_25aa_swissprot_taxid_9606.fsa
   ./51aa
     1207.test_2massSpec_swissprot_taxid_9606.fsa
   ./bind-pred
