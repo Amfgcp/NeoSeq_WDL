@@ -44,7 +44,7 @@ MUT also as the latter but additionally as a file name (useful for blast) to a
 file containing these smaller peptides as well.
 """
 def compute_short_peptides_from_file(pep_file, size):
-    logging.info("Analyzing: %s", pep_file)
+    logging.info("Analyzing: '%s'", pep_file)
     folder_name = OUT_DIR + "blast/"
     if not os.path.exists(folder_name):
         os.mkdir(folder_name)
@@ -63,12 +63,12 @@ def compute_short_peptides_from_file(pep_file, size):
             logging.warning("Skipping line in input file: '%s'", line.rstrip("\r\n"))
             continue
         var_id  = words[0]
-        logging.debug("\nVariant: %s", var_id)
+        logging.debug("\nVariant: '%s'", var_id)
         if len(words) == 2:
             WT_pep = [] # may be empty, e.g., stop loss
             MUT_pep = words[1]
             empty_WT = True
-            logging.warning("Only 1 peptide found for variant: %s", var_id)
+            logging.warning("Only 1 peptide found for variant: '%s'", var_id)
             logging.warning("Assuming there's no WT peptide (this might be a stop loss)")
         else:
             WT_pep  = words[1]
@@ -124,7 +124,7 @@ def compute_short_peptides_from_file(pep_file, size):
                     MUT_peps[fasta_id] = mer[1]
                     MUT_peps_to_blast_file.write(">" + fasta_id + "\n" + mer[1] + "\n")
                 else:
-                    logging.debug("Ignoring WT mer: %s == MUT mer: %s\n", mer[0], mer[1])
+                    logging.debug("Ignoring repeat, WT mer: '%s' == MUT mer: '%s'\n", mer[0], mer[1])
                 mer_num += 1
 
             # For frameshifts/empty_WT record 25aa only once: from the 1st mutation position and onwards,
@@ -134,7 +134,7 @@ def compute_short_peptides_from_file(pep_file, size):
             if not WRITTEN_25AA_REACTIVITY:
                 MUT_pep_25aa, WT_pep_25aa = helper.take_sub_peptide(MUT_pep, \
                          WT_pep, e[0], 25, is_frameshift or empty_WT, MUT_offset, WT_offset)
-                data_25aa.append((var_id, WT_pep_25aa, MUT_pep_25aa))
+                data_25aa.append((var_id, MUT_pep_25aa))
                 recorded_25aa_peps_once = True
 
         if not WRITTEN_MASS_SPEC:
@@ -148,7 +148,7 @@ def compute_short_peptides_from_file(pep_file, size):
     if not WRITTEN_MASS_SPEC:
         write_mass_spec_file(data_mass_spec)
 
-    logging.info("Short peptides calculated for: %s", pep_file)
+    logging.info("Short peptides calculated for: '%s'", pep_file)
     return (WT_peps, MUT_peps, MUT_peps_to_blast_file_name)
 
 """
@@ -201,7 +201,7 @@ def write_25aa_reactivity_file(data_25aa):
     file = open(file_name, "w+")
 
     linenr = 1
-    for var_id, WT_pep_25aa, MUT_pep_25aa in data_25aa:
+    for var_id, MUT_pep_25aa in data_25aa:
         file.write(">" + var_id + "_LP" + str(linenr) + "\n" + \
                     MUT_pep_25aa + "\n")
         linenr = linenr + 1
@@ -250,7 +250,7 @@ Blast peptides contained in the file with name 'peps_file_name'.
 Returns file name of blast output (XML).
 """
 def blast_peptides(peps_file_name, size):
-    logging.info("Blasting peptides from file: %s", peps_file_name)
+    logging.info("Blasting peptides from file: '%s'", peps_file_name)
     xml_file_name = OUT_DIR + "blast/" + SAMPLE + "_blast_output_" + str(size) + "mers_" + DB + ".xml"
     blastp_cline = NcbiblastpCommandline( \
                     query = peps_file_name, \
@@ -259,11 +259,11 @@ def blast_peptides(peps_file_name, size):
                     outfmt = 5, \
                     out = xml_file_name, \
                     remote = False)
-    logging.debug("Executing: %s", blastp_cline)
+    logging.debug("Executing: '%s'", blastp_cline)
     stdout, stderr = blastp_cline()
-    logging.info("Finished blasting file: %s", peps_file_name)
-    logging.info("stdout: %s", stdout)
-    logging.info("stderr: %s", stderr)
+    logging.info("Finished blasting file: '%s'", peps_file_name)
+    logging.info("stdout: '%s'", stdout)
+    logging.info("stderr: '%s'", stderr)
     return xml_file_name
 
 """
@@ -277,12 +277,12 @@ def filter_db_perfect_matches(MUT_peps, blast_xml_out_file_name, size):
     neoantigen_candidates = dict()
 
     for blast_record in blast_records:
-            logging.debug("////// Blasting peptide with id: %s //////", blast_record.query)
-            logging.debug("////// Peptide: %s", MUT_peps[blast_record.query])
+            logging.debug("////// Blasting peptide with id: '%s' //////", blast_record.query)
+            logging.debug("////// Peptide: '%s'", MUT_peps[blast_record.query])
             candidate = True
             for alignment in blast_record.alignments:
                 logging.debug("*** Alignment ***")
-                logging.debug("Aligned (in db) to: %s", alignment.title)
+                logging.debug("Aligned (in db) to: '%s'", alignment.title)
                 for hsp in alignment.hsps:
                     logging.debug(hsp.query)
                     logging.debug(hsp.match)
@@ -308,9 +308,9 @@ Predicts peptide binding to MHC using netMHC and netMHCpan.
 Records data to write to a binding prediction file.
 """
 def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, extra_flag=""):
-    logging.info("Starting binding prediction for %s, size: %i.", \
+    logging.info("Starting binding prediction for '%s', size: %i.", \
                              bind_pred_software + extra_flag, size)
-    logging.info("Alleles: %s.", hla_alleles)
+    logging.info("Alleles: '%s'.", hla_alleles)
     hlas = hla_alleles.split(",")
     data_netMHC = []
     for allele in hlas:
@@ -322,7 +322,7 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, ex
             try:
                 predictor = NetMHC(alleles = allele)
             except UnsupportedAllele:
-                logging.warning("Unsupported Allele: %s", allele)
+                logging.warning("Unsupported Allele: '%s'", allele)
                 break
         else:
             raise Exception("Unknown binding prediction software: {}".format(bind_pred_software))
@@ -372,7 +372,7 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, ex
                                     allele, size, bind_pred_software + extra_flag))
 
     write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag)
-    logging.info("Finished binding prediction for %s, size: %i.", \
+    logging.info("Finished binding prediction for '%s', size: %i.", \
                              bind_pred_software + extra_flag, size)
 
 """
@@ -387,13 +387,13 @@ Example of line without extra_flag="-BA":
 chr8_127738959_G/A-L1-WT25-MUT25-M0 77.0    STESSPQG    STESSPQS    N/A N/A N/A HLA-A02:01  8
 """
 def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
-    logging.info("Writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
+    logging.info("Writing '%s' prediction, size: %i", bind_pred_software + extra_flag, size)
     global STARTED_WRITING_BIND_PRED
     folder_name = OUT_DIR + "bind-pred/"
     if not os.path.exists(folder_name):
         os.mkdir(folder_name)
     file_name = folder_name + SAMPLE + "_binding_prediction_" + DB + ".txt"
-    logging.info("file name: %s", file_name)
+    logging.info("file name: '%s'", file_name)
 
     if not STARTED_WRITING_BIND_PRED:
         try:
@@ -414,7 +414,7 @@ def write_netMHC_type_file(data_netMHC, size, bind_pred_software, extra_flag):
         file.write("\n")
 
     file.close()
-    logging.info("Finished writing %s prediction, size: %i", bind_pred_software + extra_flag, size)
+    logging.info("Finished writing '%s' prediction, size: %i", bind_pred_software + extra_flag, size)
 
 # Global Vars
 SAMPLE = "unset-sample"
