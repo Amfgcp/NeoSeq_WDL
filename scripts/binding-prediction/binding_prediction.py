@@ -21,7 +21,7 @@ import sys
 import re
 import os
 from math import floor
-from datetime import date
+from datetime import datetime
 import logging
 
 from docopt import docopt
@@ -440,7 +440,7 @@ def main():
     if not os.path.exists(log_folder_name):
         os.mkdir(log_folder_name)
     log_file_name = log_folder_name + "bind-pred_" + SAMPLE + "_" + \
-                    date.today().strftime("%d-%m-%Y") + ".log"
+                    datetime.now().strftime("%d-%m-%Y-%H:%M:%S") + ".log"
     logging.basicConfig(filename=log_file_name, \
                         filemode='w', \
                         format="%(asctime)s %(levelname)s: %(message)s", \
