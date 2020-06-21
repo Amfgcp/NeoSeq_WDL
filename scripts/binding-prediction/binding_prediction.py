@@ -1,5 +1,5 @@
 """
-Predict peptide binding affinity to MHC
+Predict peptide binding affinity to MHC starting from long peptide variants
 
 Usage:
   binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -n Sample_X
@@ -51,6 +51,7 @@ def compute_short_peptides_from_file(pep_file, size):
     MUT_peps_to_blast_file_name = folder_name + SAMPLE + "_peptides_to_blast_" \
                                   + str(size) + "mers_" + DB + ".fsa"
     MUT_peps_to_blast_file = open(MUT_peps_to_blast_file_name, "w+")
+    global len_longest_pep
     WT_peps = dict()
     MUT_peps = dict()
     line_num = 1
@@ -59,25 +60,50 @@ def compute_short_peptides_from_file(pep_file, size):
     for line in fileinput.input(pep_file):
         words = line.split()
         if not words[0].startswith("chr"):
-            logging.warning("Skipping line in input file:\n%s", line)
+            logging.warning("Skipping line in input file: '%s'", line.rstrip("\r\n"))
             continue
         var_id  = words[0]
-        WT_pep  = words[1]
-        MUT_pep = words[2]
-        # add variant id to log file
         logging.debug("\nVariant: %s", var_id)
-        # to be able to use the length of MUT peptide outside the for loop
-        global len_longest_pep
-        len_longest_pep = len(WT_pep) if len(WT_pep) > len(MUT_pep) else len(MUT_pep)
-        # using default scores for match and mismatch, 1 and 0, respectively
-        alignments = pairwise2.align.globalxc(WT_pep, MUT_pep, \
-           gap_function, gap_function, penalize_end_gaps=(False, True))
-        for ali in alignments:
-            logging.debug("Alignment(s):\n%s", format_alignment(*ali))
+        if len(words) == 2:
+            WT_pep = [] # may be empty, e.g., stop loss
+            MUT_pep = words[1]
+            empty_WT = True
+            logging.warning("Only 1 peptide found for variant: %s", var_id)
+            logging.warning("Assuming there's no WT peptide (this might be a stop loss)")
+        else:
+            WT_pep  = words[1]
+            MUT_pep = words[2]
+            empty_WT = False
+        MUT_WT_pos = []
+        is_frameshift = False
 
-        is_frameshift = helper.check_if_frameshift(var_id)
-        MUT_WT_pos, WT_offset, MUT_offset = find_mutation_positions(var_id, \
-                                     alignments, WT_pep, MUT_pep, is_frameshift)
+        if WT_pep:
+            len_longest_pep = len(WT_pep) if len(WT_pep) > len(MUT_pep) else len(MUT_pep)
+            # Using default scores for match and mismatch, 1 and 0, respectively
+            alignments = pairwise2.align.globalxc(WT_pep, MUT_pep, \
+               gap_function, gap_function, penalize_end_gaps=(False, True))
+            for ali in alignments:
+                logging.debug("Alignment(s):\n%s", format_alignment(*ali))
+
+            is_frameshift = helper.check_if_frameshift(var_id)
+            MUT_WT_pos, WT_offset, MUT_offset = find_mutation_positions(var_id, \
+                                         alignments, WT_pep, MUT_pep, is_frameshift)
+        elif empty_WT:
+            # The placeholder WT sequence is set to "X"s, the any/unknown character for AAs
+            WT_pep = "X" * len(MUT_pep)
+            # Mimic the variables created as if the pairwise alignment was executed
+            WT_offset = 0
+            MUT_offset = 0
+            # This loop range avoids storing the positions at the start and end of the sequence that
+            # afterwards lead to duplicate short peptides, consequently avoiding some duplicate blasting
+            # and binding prediction afterwards. This optimization is tied to the way the short peptides
+            # are calculated using the helper functions 'take_sub_peptide' and 'calc_mers'. The unoptimized
+            # way is to use "range(0, len(MUT_pep)" and rely on some sort of duplicate filtering.
+            # The "MUT_WT_pos" semantic is lost but in this exceptional case it was lost from the start.
+            for i in range(size-1, len(MUT_pep)-size+1):
+                MUT_WT_pos.append((i, None))
+        else:
+            raise Exception("Unexpected case for VarID: {}. Is this input properly formatted?".format(var_id))
 
         mass_spec_suffix = []
         recorded_25aa_peps_once = False
@@ -92,7 +118,8 @@ def compute_short_peptides_from_file(pep_file, size):
             for mer in zip(WT_mers, MUT_mers):
                 fasta_id = var_id + "-L" + str(line_num) + "-WT" +  str(e[1]) \
                                   + "-MUT" +  str(e[0]) + "-M" + str(mer_num)
-                if mer[0] != mer[1]: # avoids unnecessary blasting and prediction
+                # Avoids some duplicate blasting and binding prediction afterwards
+                if mer[0] != mer[1]:
                     WT_peps[fasta_id] = mer[0]
                     MUT_peps[fasta_id] = mer[1]
                     MUT_peps_to_blast_file.write(">" + fasta_id + "\n" + mer[1] + "\n")
@@ -100,11 +127,13 @@ def compute_short_peptides_from_file(pep_file, size):
                     logging.debug("Ignoring WT mer: %s == MUT mer: %s\n", mer[0], mer[1])
                 mer_num += 1
 
-            if recorded_25aa_peps_once and is_frameshift:
-                continue # such that these kind of repeats aren't recorded
+            # For frameshifts/empty_WT record 25aa only once: from the 1st mutation position and onwards,
+            # which for empty_WT means the entire ALT peptide.
+            if recorded_25aa_peps_once and (is_frameshift or empty_WT):
+                continue
             if not WRITTEN_25AA_REACTIVITY:
                 MUT_pep_25aa, WT_pep_25aa = helper.take_sub_peptide(MUT_pep, \
-                         WT_pep, e[0], 25, is_frameshift, MUT_offset, WT_offset)
+                         WT_pep, e[0], 25, is_frameshift or empty_WT, MUT_offset, WT_offset)
                 data_25aa.append((var_id, WT_pep_25aa, MUT_pep_25aa))
                 recorded_25aa_peps_once = True
 
@@ -303,7 +332,8 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, ex
             mut_binding_prediction = \
               predictor.predict_subsequences({var_id : MUT_pep}, peptide_lengths = [size])
 
-            if not is_frameshift:
+            # A sequence of the form "X" * size comes from the case of an empty_WT
+            if not is_frameshift and not WT_peps[var_id] == "X" * size:
                 wt_binding_prediction = \
                    predictor.predict_subsequences({var_id : WT_peps[var_id]}, peptide_lengths = [size])
                 for wt_bp, mut_bp in zip(wt_binding_prediction, mut_binding_prediction):
@@ -323,7 +353,6 @@ def predict_binding(hla_alleles, WT_peps, MUT_peps, size, bind_pred_software, ex
                                     bind_level, WT_peps[var_id], MUT_pep, \
                                     "N/A", "N/A", "N/A", \
                                     allele, size, bind_pred_software + extra_flag))
-
             else:
                 for mut_bp in mut_binding_prediction:
                     bind_level = "N/A"
@@ -403,7 +432,7 @@ Main logic is for each size specified by the user:
   4. Perform binding prediction using netMHCpan and netMHC
 """
 def main():
-    arguments = docopt(__doc__, version='Binding Prediction 0.3')
+    arguments = docopt(__doc__, version='Binding Prediction 0.4.0')
     global SAMPLE, DB, DB_PATH, OUT_DIR
     OUT_DIR = arguments["-o"] + "/"
     SAMPLE = arguments["-n"]

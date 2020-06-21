@@ -51,7 +51,7 @@ know, e.g., if the mutation is not centered in the return value of this function
 Note that an even sized sequence will never actually be centered around the
 mutation as there is center.
 """
-def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift, mut_offset, wt_offset):
+def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift_or_empty_WT, mut_offset, wt_offset):
     mut_len = len(mut_pep)
     if pos >= mut_len or pos < 0:
         incorrect_mut_pos = ("Mutation position is not valid, value is "
@@ -66,7 +66,7 @@ def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift, mut_offset, wt_o
         half_size = floor(size/2)
         if pos <= half_size:
             logging.debug("Sequence \"cut\" on left")
-            if is_frameshift:
+            if is_frameshift_or_empty_WT:
                 return (mut_pep, wt_pep[: size])
             return (mut_pep[: size], wt_pep[: size])
         elif mut_len - pos - 1 < half_size:
@@ -80,7 +80,7 @@ def take_sub_peptide(mut_pep, wt_pep, pos, size, is_frameshift, mut_offset, wt_o
             mut_pep_start = pos - half_size
             wt_sub_pep = wt_pep[mut_pep_start - mut_offset + wt_offset: \
                           mut_pep_start - mut_offset + wt_offset + size]
-            if is_frameshift:
+            if is_frameshift_or_empty_WT:
                 return (mut_pep[pos - half_size:], wt_sub_pep)
             if size % 2 == 0:
                 return (mut_pep[pos - half_size:pos + half_size], wt_sub_pep)
