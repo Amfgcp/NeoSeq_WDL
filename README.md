@@ -12,9 +12,9 @@
 
 NOTE: mhctools requires most of the binding predictors to be installed locally (see: https://pypi.org/project/mhctools/).
 
-3- Clone binding-prediction repository:
+3- Clone this repository:
 
-`git clone git@git.lumc.nl:amfgcpaulo/neoseq_wdl.git`
+`git clone https://github.com/Amfgcp/NeoSeq_WDL.git`
 
 4- Create output folder, e.g.:
 
