@@ -15,7 +15,7 @@ This standalone module was developed in the context of a neoantigen identificati
 ```
 
 ## Command Example
-binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -n Sample_X
+`binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -n Sample_X`
 
 ## Setup and Testing
 1- (Optional) Create & activate conda environment with python 3.6 and docopt:
