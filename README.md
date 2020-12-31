@@ -1,6 +1,24 @@
-# NeoSeq_WDL
-## Binding prediction installation and test
-1- (Optional) Create & activate conda environment with python 3.6 and docopt (newer python versions may work, but were not tested):
+# HLA Binding Prediction Module
+
+This standalone module was developed in the context of a neoantigen identification pipeline for the Immunogenomics group from Leiden University Medical Center.
+
+## Options
+```
+  -h --help           Show options.
+  --version           Show version.
+  -s <size(s)>        List of length(s) for the sub-peptides to be generated and have binding affinity predicted.
+  -f <file>           Three column file containing var ID, WT peptide (wild type) and MUT peptide (mutant).
+  -d <path/to/db>     Path to database.
+  -b <HLA(s)>         HLA alleles for the binding prediction step.
+  -o <output_dir>     Output folder where files and sub-folders will be created.
+  -n <sample_name>    Sample name. Will be used in the file names.
+```
+
+## Command Example
+binding_prediction.py -f long_peps.txt -s 8,9 -d /path/to/db -b A*02:01,hla-a0101 -o /path/out/dir -n Sample_X
+
+## Setup and Testing
+1- (Optional) Create & activate conda environment with python 3.6 and docopt:
     
 `conda create -n <ENV_NAME_HERE> python=3.6 docopt`
 
